@@ -85,6 +85,17 @@ public class Result {
     /**
      * 失败返回结果
      *
+     * @param msg 错误信息
+     * @param data 附加数据
+     * @return 结果
+     */
+    public static Result error(String msg, Object data) {
+        return new Result(ResultCode.ERROR.getCode(), msg, data);
+    }
+
+    /**
+     * 失败返回结果
+     *
      * @param resultCode 错误码
      * @param msg 错误信息
      * @return 结果
