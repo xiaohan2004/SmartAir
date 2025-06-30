@@ -41,9 +41,9 @@ public class ConversationIndex {
     private String lastMessage;
     
     /**
-     * 会话状态：active(活跃)、transferred(已转人工)、closed(已关闭)
+     * 会话状态：1-活跃(active)、2-已转人工(transferred)、3-已关闭(closed)
      */
-    private String status;
+    private Integer status;
     
     /**
      * 处理客服ID，转人工时有效

@@ -53,7 +53,7 @@ CREATE TABLE IF NOT EXISTS `conversation_index` (
   `user_id` BIGINT NOT NULL,
   `conversation_uuid` VARCHAR(64) NOT NULL UNIQUE,
   `last_message` TEXT,
-  `status` VARCHAR(20) DEFAULT 'active' COMMENT '会话状态：active(活跃)、transferred(已转人工)、closed(已关闭)',
+  `status` INT DEFAULT 1 COMMENT '会话状态：1-活跃(active)、2-已转人工(transferred)、3-已关闭(closed)',
   `service_user_id` BIGINT COMMENT '处理客服ID，转人工时有效',
   `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   CONSTRAINT `fk_conversation_user` FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON DELETE CASCADE,
