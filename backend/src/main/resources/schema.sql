@@ -40,7 +40,7 @@ CREATE TABLE IF NOT EXISTS `flight_order` (
   `user_id` BIGINT NOT NULL,
   `flight_id` BIGINT NOT NULL,
   `seat_no` VARCHAR(10) COMMENT '座位号',
-  `status` INT DEFAULT 1 COMMENT '订单状态：1-已完成(completed)，2-已取消(cancelled)',
+  `status` INT DEFAULT 1 COMMENT '订单状态：1-购票成功(completed)，2-已取消(cancelled)',
   `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
   `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   CONSTRAINT `fk_order_user` FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON DELETE CASCADE,

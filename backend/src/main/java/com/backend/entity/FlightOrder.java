@@ -41,7 +41,7 @@ public class FlightOrder {
     private String seatNo;
     
     /**
-     * 订单状态：1-已完成(completed)，2-已取消(cancelled)
+     * 订单状态：1-购票成功(completed)，2-已取消(cancelled)
      */
     private Integer status;
     
