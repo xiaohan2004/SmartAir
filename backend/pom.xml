@@ -21,7 +21,7 @@
         <druid.version>1.2.18</druid.version>
         <jwt.version>0.11.5</jwt.version>
         <jaxb.version>2.3.1</jaxb.version>
-        <mybatis.plus.version>3.5.5</mybatis.plus.version>
+        <mybatis.plus.version>3.5.12</mybatis.plus.version>
     </properties>
 
     <dependencies>
@@ -51,7 +51,7 @@
         <!-- MyBatis-Plus Starter -->
         <dependency>
             <groupId>com.baomidou</groupId>
-            <artifactId>mybatis-plus-boot-starter</artifactId>
+            <artifactId>mybatis-plus-spring-boot3-starter</artifactId>
             <version>${mybatis.plus.version}</version>
         </dependency>
 
