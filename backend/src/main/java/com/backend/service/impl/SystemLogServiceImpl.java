@@ -22,7 +22,6 @@ public class SystemLogServiceImpl extends ServiceImpl<SystemLogMapper, SystemLog
     public boolean addLog(String message) {
         SystemLog log = new SystemLog();
         log.setMessage(message);
-        log.setCreatedAt(LocalDateTime.now());
         return save(log);
     }
 

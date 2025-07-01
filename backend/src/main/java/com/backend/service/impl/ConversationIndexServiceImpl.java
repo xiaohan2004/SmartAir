@@ -65,7 +65,6 @@ public class ConversationIndexServiceImpl extends ServiceImpl<ConversationIndexM
         conversation.setConversationUuid(UUID.randomUUID().toString());
         conversation.setLastMessage(initialMessage);
         conversation.setStatus(1);
-        conversation.setUpdatedAt(LocalDateTime.now());
         
         // 保存会话
         save(conversation);
@@ -83,7 +82,6 @@ public class ConversationIndexServiceImpl extends ServiceImpl<ConversationIndexM
         }
         
         conversation.setLastMessage(message);
-        conversation.setUpdatedAt(LocalDateTime.now());
         
         return updateById(conversation);
     }
@@ -104,7 +102,6 @@ public class ConversationIndexServiceImpl extends ServiceImpl<ConversationIndexM
         
         conversation.setStatus(2);
         conversation.setServiceUserId(serviceUserId);
-        conversation.setUpdatedAt(LocalDateTime.now());
         
         return updateById(conversation);
     }
@@ -118,7 +115,6 @@ public class ConversationIndexServiceImpl extends ServiceImpl<ConversationIndexM
         }
         
         conversation.setStatus(3);
-        conversation.setUpdatedAt(LocalDateTime.now());
         
         return updateById(conversation);
     }

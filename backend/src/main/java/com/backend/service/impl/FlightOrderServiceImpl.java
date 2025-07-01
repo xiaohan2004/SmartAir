@@ -66,8 +66,6 @@ public class FlightOrderServiceImpl extends ServiceImpl<FlightOrderMapper, Fligh
         order.setFlightId(flightId);
         order.setSeatNo(seatNo);
         order.setStatus(1); // 默认已完成状态
-        order.setCreatedAt(LocalDateTime.now());
-        order.setUpdatedAt(LocalDateTime.now());
         
         // 保存订单
         save(order);
@@ -85,7 +83,6 @@ public class FlightOrderServiceImpl extends ServiceImpl<FlightOrderMapper, Fligh
         
         // 设置订单状态为已取消
         order.setStatus(2);
-        order.setUpdatedAt(LocalDateTime.now());
         
         return updateById(order);
     }
