@@ -1,10 +1,11 @@
 <script setup>
-import { ref, reactive } from 'vue';
+import { ref, reactive, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import HeaderNav from '@/components/common/HeaderNav.vue';
 
 const router = useRouter();
+const activeTab = ref('info'); // 默认显示个人信息标签页
 
 // 用户信息
 const userInfo = reactive({
@@ -14,6 +15,9 @@ const userInfo = reactive({
   phone: '138****1234',
   joinTime: '2023-12-01'
 });
+
+// 是否为普通用户
+const isNormalUser = computed(() => userInfo.role === '用户');
 
 // 编辑状态
 const isEditing = ref(false);
@@ -57,6 +61,20 @@ const passwordRules = {
     }
   ]
 };
+
+// 模拟订单数据
+const orders = reactive([
+  { id: 'ORD20231201001', flight: 'CA1234', from: '北京', to: '上海', date: '2023-12-15', status: '已出票', price: '1280.00' },
+  { id: 'ORD20231115002', flight: 'MU5678', from: '上海', to: '广州', date: '2023-11-20', status: '已完成', price: '960.00' },
+  { id: 'ORD20231028003', flight: 'CZ8901', from: '广州', to: '成都', date: '2023-11-05', status: '已完成', price: '1420.00' }
+]);
+
+// 模拟历史会话数据
+const conversations = reactive([
+  { id: 1, serviceUser: '客服小王', lastMessage: '您的问题已解决，感谢您的咨询！', time: '2023-12-01 14:30', status: '已结束' },
+  { id: 2, serviceUser: '客服小李', lastMessage: '您的退款申请已经处理完成，款项将在1-3个工作日内退回原支付账户。', time: '2023-11-15 10:25', status: '已结束' },
+  { id: 3, serviceUser: '客服小张', lastMessage: '您的改签申请已提交，请等待审核结果。', time: '2023-10-28 16:45', status: '已结束' }
+]);
 
 // 开始编辑
 const startEditing = () => {
@@ -103,6 +121,18 @@ const submitPasswordChange = () => {
   });
 };
 
+// 查看订单详情
+const viewOrderDetail = (orderId) => {
+  ElMessage.info(`查看订单详情：${orderId}`);
+  // 这里可以添加跳转到订单详情页或弹出订单详情对话框的逻辑
+};
+
+// 查看会话详情
+const viewConversationDetail = (conversationId) => {
+  ElMessage.info(`查看会话详情：${conversationId}`);
+  // 这里可以添加跳转到会话详情页或弹出会话详情对话框的逻辑
+};
+
 // 返回上一页
 const goBack = () => {
   router.back();
@@ -134,64 +164,127 @@ const goBack = () => {
         
         <el-divider />
         
-        <div class="profile-data-container">
-          <!-- 查看模式 -->
-          <div v-if="!isEditing" class="profile-info">
-            <div class="info-row">
-              <div class="info-label">用户名</div>
-              <div class="info-value">{{ userInfo.username }}</div>
+        <!-- 标签页切换 -->
+        <el-tabs v-model="activeTab" class="profile-tabs">
+          <!-- 个人信息标签页 - 所有用户都有 -->
+          <el-tab-pane label="个人信息" name="info">
+            <div class="profile-data-container">
+              <!-- 查看模式 -->
+              <div v-if="!isEditing" class="profile-info">
+                <div class="info-row">
+                  <div class="info-label">用户名</div>
+                  <div class="info-value">{{ userInfo.username }}</div>
+                </div>
+                <div class="info-row">
+                  <div class="info-label">邮箱</div>
+                  <div class="info-value">{{ userInfo.email }}</div>
+                </div>
+                <div class="info-row">
+                  <div class="info-label">电话</div>
+                  <div class="info-value">{{ userInfo.phone }}</div>
+                </div>
+                <div class="info-row">
+                  <div class="info-label">注册时间</div>
+                  <div class="info-value">{{ userInfo.joinTime }}</div>
+                </div>
+              </div>
+              
+              <!-- 编辑模式 -->
+              <div v-else class="profile-edit">
+                <div class="info-row">
+                  <div class="info-label">用户名</div>
+                  <div class="info-value">
+                    <el-input v-model="editingUserInfo.username" />
+                  </div>
+                </div>
+                <div class="info-row">
+                  <div class="info-label">邮箱</div>
+                  <div class="info-value">
+                    <el-input v-model="editingUserInfo.email" />
+                  </div>
+                </div>
+                <div class="info-row">
+                  <div class="info-label">电话</div>
+                  <div class="info-value">
+                    <el-input v-model="editingUserInfo.phone" />
+                  </div>
+                </div>
+                <div class="info-row">
+                  <div class="info-label">注册时间</div>
+                  <div class="info-value readonly">{{ userInfo.joinTime }}</div>
+                </div>
+              </div>
             </div>
-            <div class="info-row">
-              <div class="info-label">邮箱</div>
-              <div class="info-value">{{ userInfo.email }}</div>
+            
+            <div class="profile-actions">
+              <template v-if="!isEditing">
+                <el-button type="primary" @click="startEditing">修改资料</el-button>
+                <el-button @click="openPasswordDialog">修改密码</el-button>
+              </template>
+              <template v-else>
+                <el-button type="primary" @click="saveEditing">保存</el-button>
+                <el-button @click="cancelEditing">取消</el-button>
+              </template>
             </div>
-            <div class="info-row">
-              <div class="info-label">电话</div>
-              <div class="info-value">{{ userInfo.phone }}</div>
-            </div>
-            <div class="info-row">
-              <div class="info-label">注册时间</div>
-              <div class="info-value">{{ userInfo.joinTime }}</div>
-            </div>
-          </div>
+          </el-tab-pane>
           
-          <!-- 编辑模式 -->
-          <div v-else class="profile-edit">
-            <div class="info-row">
-              <div class="info-label">用户名</div>
-              <div class="info-value">
-                <el-input v-model="editingUserInfo.username" />
-              </div>
+          <!-- 我的订单标签页 - 只有普通用户才有 -->
+          <el-tab-pane label="我的订单" name="orders" v-if="isNormalUser">
+            <div class="orders-container">
+              <el-table :data="orders" style="width: 100%">
+                <el-table-column prop="id" label="订单号" width="140" />
+                <el-table-column prop="flight" label="航班号" width="100" />
+                <el-table-column label="行程" min-width="150">
+                  <template #default="scope">
+                    {{ scope.row.from }} → {{ scope.row.to }}
+                  </template>
+                </el-table-column>
+                <el-table-column prop="date" label="出发日期" width="120" />
+                <el-table-column prop="price" label="价格" width="100">
+                  <template #default="scope">
+                    ¥{{ scope.row.price }}
+                  </template>
+                </el-table-column>
+                <el-table-column prop="status" label="状态" width="100">
+                  <template #default="scope">
+                    <el-tag
+                      :type="scope.row.status === '已出票' ? 'warning' : 
+                             scope.row.status === '已完成' ? 'success' : 'info'"
+                    >
+                      {{ scope.row.status }}
+                    </el-tag>
+                  </template>
+                </el-table-column>
+                <el-table-column label="操作" width="120">
+                  <template #default="scope">
+                    <el-button size="small" @click="viewOrderDetail(scope.row.id)">查看详情</el-button>
+                  </template>
+                </el-table-column>
+              </el-table>
             </div>
-            <div class="info-row">
-              <div class="info-label">邮箱</div>
-              <div class="info-value">
-                <el-input v-model="editingUserInfo.email" />
-              </div>
+          </el-tab-pane>
+          
+          <!-- 历史会话标签页 - 只有普通用户才有 -->
+          <el-tab-pane label="历史会话" name="conversations" v-if="isNormalUser">
+            <div class="conversations-container">
+              <el-table :data="conversations" style="width: 100%">
+                <el-table-column prop="serviceUser" label="客服" width="120" />
+                <el-table-column prop="lastMessage" label="最后消息" min-width="200" show-overflow-tooltip />
+                <el-table-column prop="time" label="时间" width="160" />
+                <el-table-column prop="status" label="状态" width="100">
+                  <template #default="scope">
+                    <el-tag type="info">{{ scope.row.status }}</el-tag>
+                  </template>
+                </el-table-column>
+                <el-table-column label="操作" width="120">
+                  <template #default="scope">
+                    <el-button size="small" @click="viewConversationDetail(scope.row.id)">查看详情</el-button>
+                  </template>
+                </el-table-column>
+              </el-table>
             </div>
-            <div class="info-row">
-              <div class="info-label">电话</div>
-              <div class="info-value">
-                <el-input v-model="editingUserInfo.phone" />
-              </div>
-            </div>
-            <div class="info-row">
-              <div class="info-label">注册时间</div>
-              <div class="info-value readonly">{{ userInfo.joinTime }}</div>
-            </div>
-          </div>
-        </div>
-        
-        <div class="profile-actions">
-          <template v-if="!isEditing">
-            <el-button type="primary" @click="startEditing">修改资料</el-button>
-            <el-button @click="openPasswordDialog">修改密码</el-button>
-          </template>
-          <template v-else>
-            <el-button type="primary" @click="saveEditing">保存</el-button>
-            <el-button @click="cancelEditing">取消</el-button>
-          </template>
-        </div>
+          </el-tab-pane>
+        </el-tabs>
       </el-card>
     </div>
     
@@ -302,7 +395,7 @@ const goBack = () => {
 
 .profile-card {
   width: 100%;
-  max-width: 800px;
+  max-width: 900px;
 }
 
 .profile-header {
@@ -317,6 +410,10 @@ const goBack = () => {
 
 .profile-title h2 {
   margin-bottom: 10px;
+}
+
+.profile-tabs {
+  margin-top: 20px;
 }
 
 .profile-data-container {
@@ -362,6 +459,11 @@ const goBack = () => {
   justify-content: flex-start;
   gap: 15px;
   margin-top: 20px;
+}
+
+.orders-container,
+.conversations-container {
+  margin: 20px 0;
 }
 
 @media (max-width: 768px) {

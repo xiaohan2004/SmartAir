@@ -20,7 +20,7 @@ const props = defineProps({
   }
 });
 
-const emit = defineEmits(['send']);
+const emit = defineEmits(['send', 'closeConversation']);
 
 const message = ref('');
 
@@ -37,10 +37,22 @@ const quickReply = (text) => {
   message.value = text;
   sendMessage();
 };
+
+// 关闭会话
+const closeConversation = () => {
+  emit('closeConversation');
+};
 </script>
 
 <template>
   <div class="chat-box">
+    <!-- 操作按钮区域 - 仅在用户界面显示 -->
+    <div class="chat-actions" v-if="userType === 'user'">
+      <el-button type="danger" size="small" @click="closeConversation" class="close-btn">
+        关闭会话
+      </el-button>
+    </div>
+    
     <!-- 聊天消息区域 -->
     <div class="chat-messages" v-if="messages.length > 0">
       <div 
@@ -50,7 +62,8 @@ const quickReply = (text) => {
         :class="{ 
           'message-user': (userType === 'user' && msg.type === 'user') || (userType === 'service' && msg.type === 'service'), 
           'message-ai': (userType === 'user' && msg.type === 'ai'),
-          'message-customer': (userType === 'service' && msg.type === 'customer')
+          'message-customer': (userType === 'service' && msg.type === 'customer'),
+          'message-system': msg.type === 'system'
         }"
       >
         <div class="message-content">{{ msg.content }}</div>
@@ -60,10 +73,12 @@ const quickReply = (text) => {
     
     <!-- 空聊天提示 -->
     <div class="empty-chat" v-else>
-      <el-empty :description="emptyText">
+      <div v-if="userType === 'user'" class="welcome-message">
+        <h1 class="welcome-title">有什么能帮您？</h1>
+      </div>
+      <el-empty v-else :description="emptyText">
         <slot name="quick-actions">
-          <el-button type="primary" @click="quickReply('我想订机票')">订机票</el-button>
-          <el-button @click="quickReply('如何改签')">改签问题</el-button>
+          <el-button type="primary" @click="quickReply('您好，有什么可以帮助您的？')">发送问候</el-button>
         </slot>
       </el-empty>
     </div>
@@ -91,6 +106,28 @@ const quickReply = (text) => {
   height: 100%;
   width: 100%;
   box-sizing: border-box;
+  max-width: 800px;
+  margin: 0 auto;
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+}
+
+.chat-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding: 10px;
+  background-color: transparent;
+  border-bottom: 1px solid #ebeef5;
+}
+
+.close-btn {
+  opacity: 0.7;
+  transition: opacity 0.3s;
+}
+
+.close-btn:hover {
+  opacity: 1;
 }
 
 .chat-messages {
@@ -124,6 +161,17 @@ const quickReply = (text) => {
   color: #303133;
 }
 
+.message-system {
+  align-self: center;
+  background-color: #f0f9eb;
+  color: #67c23a;
+  max-width: 90%;
+  text-align: center;
+  padding: 5px 15px;
+  border-radius: 16px;
+  font-size: 13px;
+}
+
 .message-content {
   word-break: break-word;
 }
@@ -142,6 +190,17 @@ const quickReply = (text) => {
   align-items: center;
   height: 100%;
   width: 100%;
+}
+
+.welcome-message {
+  text-align: center;
+}
+
+.welcome-title {
+  font-size: 36px;
+  color: #303133;
+  margin-bottom: 20px;
+  font-weight: 500;
 }
 
 .input-container {
