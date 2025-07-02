@@ -158,15 +158,19 @@ public class ConversationIntegratedController {
      * 追加消息到会话
      *
      * @param uuid 会话UUID
-     * @param speaker 发言者
-     * @param text 消息内容
+     * @param params 包含发言者和消息内容的Map
      * @return 追加结果
      */
     @PostMapping("/{uuid}/append")
-    public Result appendMessage(
-            @PathVariable String uuid,
-            @RequestParam String speaker,
-            @RequestParam String text) {
+    public Result appendMessage(@PathVariable String uuid,@RequestBody Map<String, String> params) {
+        String speaker = params.get("speaker");
+        String text = params.get("text");
+        if (speaker == null || speaker.isEmpty()) {
+            return Result.error(ResultCode.PARAM_ERROR, "发言者不能为空");
+        }
+        if (text == null || text.isEmpty()) {
+            return Result.error(ResultCode.PARAM_ERROR, "消息内容不能为空");
+        }
         boolean success = conversationService.appendMessage(uuid, speaker, text);
         if (success) {
             return Result.success();
