@@ -61,4 +61,18 @@ public interface ConversationIndexService extends IService<ConversationIndex> {
      * @return 会话列表
      */
     List<ConversationIndex> listByServiceUserId(Long serviceUserId);
+    
+    /**
+     * 查询客服正在处理的已转人工会话列表
+     * @param serviceUserId 客服用户ID
+     * @return 已转人工的会话列表
+     */
+    List<ConversationIndex> listTransferredByServiceUserId(Long serviceUserId);
+    
+    /**
+     * 查询用户的活跃会话
+     * @param userId 用户ID
+     * @return 活跃会话，如果没有则返回null
+     */
+    ConversationIndex getActiveByUserId(Long userId);
 }

@@ -20,6 +20,7 @@
         <java.version>17</java.version>
         <druid.version>1.2.18</druid.version>
         <jwt.version>0.11.5</jwt.version>
+        <fastjson.version>1.2.83</fastjson.version>
         <jaxb.version>2.3.1</jaxb.version>
         <mybatis.plus.version>3.5.12</mybatis.plus.version>
     </properties>
@@ -33,6 +34,11 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-aop</artifactId>
         </dependency>
 
         <dependency>
@@ -77,6 +83,13 @@
             <artifactId>jjwt-jackson</artifactId>
             <version>${jwt.version}</version>
             <scope>runtime</scope>
+        </dependency>
+
+        <!--fastJSON-->
+        <dependency>
+            <groupId>com.alibaba</groupId>
+            <artifactId>fastjson</artifactId>
+            <version>${fastjson.version}</version>
         </dependency>
 
         <!--   邮件服务    -->
