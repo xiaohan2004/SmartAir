@@ -4,6 +4,7 @@ import * as flightApi from './flight';
 import * as orderApi from './order';
 import * as conversationApi from './conversation';
 import * as logApi from './log';
+import * as dashboardApi from './dashboard';
 
 export {
   authApi,
@@ -11,5 +12,6 @@ export {
   flightApi,
   orderApi,
   conversationApi,
-  logApi
+  logApi,
+  dashboardApi
 }; 

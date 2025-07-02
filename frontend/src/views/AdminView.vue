@@ -1,5 +1,5 @@
 <script setup>
-import { ref, reactive, onMounted } from 'vue';
+import { ref, reactive, onMounted, watch, onUnmounted } from 'vue';
 import HeaderNav from '@/components/common/HeaderNav.vue';
 import SideMenu from '@/components/common/SideMenu.vue';
 import StatCard from '@/components/admin/StatCard.vue';
@@ -11,12 +11,19 @@ import KnowledgeManagement from '@/components/admin/KnowledgeManagement.vue';
 import AccountsManagement from '@/components/admin/AccountsManagement.vue';
 import LogsManagement from '@/components/admin/LogsManagement.vue';
 import { parseJwt } from '@/utils/jwt';
-import { flightApi, orderApi, conversationApi } from '@/api';
+import { dashboardApi } from '@/api/dashboard';
 import { ElMessage } from 'element-plus';
+import * as echarts from 'echarts';
 
 const username = ref('管理员');
 const activeMenu = ref('dashboard');
 const loading = ref(false);
+
+// 图表实例
+const flightChartRef = ref(null);
+const orderChartRef = ref(null);
+let flightChart = null;
+let orderChart = null;
 
 // 仪表盘数据
 const dashboardData = reactive({
@@ -25,7 +32,10 @@ const dashboardData = reactive({
     { title: '今日订单', value: 0, icon: 'Ticket', color: '#67c23a' },
     { title: '活跃用户', value: 0, icon: 'User', color: '#e6a23c' },
     { title: '客服工单', value: 0, icon: 'Service', color: '#f56c6c' }
-  ]
+  ],
+  dates: [],
+  dailyFlights: [],
+  dailyOrders: []
 });
 
 // 从 token 中获取用户信息
@@ -48,59 +58,153 @@ const loadDashboardData = async () => {
   try {
     loading.value = true;
     
-    // 获取航班数据
-    const flightsResponse = await flightApi.listFlights();
-    if (flightsResponse.code === 200) {
-      const flights = flightsResponse.data;
-      // 统计今日航班数（假设根据当前日期过滤）
-      const today = new Date().toISOString().split('T')[0];
-      const todayFlights = flights.filter(flight => 
-        flight.scheduledDepartureTime && flight.scheduledDepartureTime.startsWith(today)
-      );
-      dashboardData.stats[0].value = todayFlights.length;
-    }
+    // 调用仪表盘API获取数据
+    const response = await dashboardApi.getDashboardOverview();
     
-    // 获取订单数据
-    const ordersResponse = await orderApi.listAllOrders();
-    if (ordersResponse.code === 200) {
-      const orders = ordersResponse.data;
-      // 统计今日订单数
-      const today = new Date().toISOString().split('T')[0];
-      const todayOrders = orders.filter(order => 
-        order.createdAt && order.createdAt.startsWith(today)
-      );
-      dashboardData.stats[1].value = todayOrders.length;
+    if (response.code === 200) {
+      const data = response.data;
+      
+      // 更新统计数据
+      dashboardData.stats[0].value = data.todayFlights || 0;
+      dashboardData.stats[1].value = data.todayOrders || 0;
+      dashboardData.stats[2].value = data.activeUsers || 0;
+      dashboardData.stats[3].value = data.serviceTickets || 0;
+      
+      // 更新图表数据
+      dashboardData.dates = data.dates || [];
+      dashboardData.dailyFlights = data.dailyFlights || [];
+      dashboardData.dailyOrders = data.dailyOrders || [];
+      
+      // 初始化图表
+      initCharts();
+    } else {
+      throw new Error(response.message || '获取仪表盘数据失败');
     }
-    
-    // 获取活跃用户数（这里需要根据实际API调整）
-    try {
-      const response = await fetch('/api/admin/stats/activeUsers');
-      const data = await response.json();
-      if (data.code === 200) {
-        dashboardData.stats[2].value = data.data || 0;
-      }
-    } catch (error) {
-      console.error('获取活跃用户数失败', error);
-      // 设置一个默认值
-      dashboardData.stats[2].value = 0;
-    }
-    
-    // 获取客服工单数
-    const conversationsResponse = await conversationApi.listAllConversations();
-    if (conversationsResponse.code === 200) {
-      const conversations = conversationsResponse.data;
-      // 统计正在进行中的会话数
-      const activeConversations = conversations.filter(conv => 
-        conv.status === 2  // 2表示已转人工
-      );
-      dashboardData.stats[3].value = activeConversations.length;
-    }
-    
   } catch (error) {
     console.error('加载仪表盘数据失败', error);
-    ElMessage.error('加载数据失败');
+    ElMessage.error('加载数据失败: ' + (error.message || '未知错误'));
   } finally {
     loading.value = false;
+  }
+};
+
+// 初始化图表
+const initCharts = () => {
+  // 确保DOM已经渲染
+  setTimeout(() => {
+    // 初始化航班图表
+    if (flightChartRef.value) {
+      // 如果已经有图表实例，先销毁
+      if (flightChart) {
+        flightChart.dispose();
+      }
+      flightChart = echarts.init(flightChartRef.value);
+      const flightOption = {
+        title: {
+          text: '近期航班数量趋势',
+          left: 'center'
+        },
+        tooltip: {
+          trigger: 'axis',
+          axisPointer: {
+            type: 'shadow'
+          }
+        },
+        xAxis: {
+          type: 'category',
+          data: dashboardData.dates,
+          axisLabel: {
+            interval: 0,
+            rotate: 30
+          }
+        },
+        yAxis: {
+          type: 'value',
+          name: '航班数量'
+        },
+        series: [
+          {
+            name: '航班数量',
+            type: 'bar',
+            data: dashboardData.dailyFlights,
+            itemStyle: {
+              color: '#409eff'
+            }
+          }
+        ],
+        grid: {
+          left: '3%',
+          right: '4%',
+          bottom: '15%',
+          containLabel: true
+        }
+      };
+      flightChart.setOption(flightOption);
+    }
+    
+    // 初始化订单图表
+    if (orderChartRef.value) {
+      // 如果已经有图表实例，先销毁
+      if (orderChart) {
+        orderChart.dispose();
+      }
+      orderChart = echarts.init(orderChartRef.value);
+      const orderOption = {
+        title: {
+          text: '近期订单数量趋势',
+          left: 'center'
+        },
+        tooltip: {
+          trigger: 'axis'
+        },
+        xAxis: {
+          type: 'category',
+          data: dashboardData.dates,
+          axisLabel: {
+            interval: 0,
+            rotate: 30
+          }
+        },
+        yAxis: {
+          type: 'value',
+          name: '订单数量'
+        },
+        series: [
+          {
+            name: '订单数量',
+            type: 'line',
+            data: dashboardData.dailyOrders,
+            smooth: true,
+            itemStyle: {
+              color: '#67c23a'
+            },
+            areaStyle: {
+              color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                { offset: 0, color: 'rgba(103, 194, 58, 0.5)' },
+                { offset: 1, color: 'rgba(103, 194, 58, 0.1)' }
+              ])
+            }
+          }
+        ],
+        grid: {
+          left: '3%',
+          right: '4%',
+          bottom: '15%',
+          containLabel: true
+        }
+      };
+      orderChart.setOption(orderOption);
+    }
+  }, 100);
+};
+
+// 窗口大小变化时重绘图表
+const resizeCharts = () => {
+  if (flightChart) {
+    flightChart.resize();
+  }
+  if (orderChart) {
+    orderChart.resize();
   }
 };
 
@@ -108,6 +212,32 @@ const loadDashboardData = async () => {
 onMounted(() => {
   loadUserInfo();
   loadDashboardData();
+  
+  // 监听窗口大小变化
+  window.addEventListener('resize', resizeCharts);
+});
+
+// 监听菜单切换，当回到仪表盘时重新加载数据
+watch(activeMenu, (newValue) => {
+  if (newValue === 'dashboard') {
+    loadDashboardData();
+  }
+});
+
+// 组件卸载时清理资源
+onUnmounted(() => {
+  // 移除窗口大小变化监听
+  window.removeEventListener('resize', resizeCharts);
+  
+  // 销毁图表实例
+  if (flightChart) {
+    flightChart.dispose();
+    flightChart = null;
+  }
+  if (orderChart) {
+    orderChart.dispose();
+    orderChart = null;
+  }
 });
 
 // 侧边栏菜单项
@@ -164,9 +294,7 @@ const menuItems = [
                   <span>航班概览</span>
                 </div>
               </template>
-              <div class="chart-placeholder">
-                图表区域（航班统计）
-              </div>
+              <div ref="flightChartRef" class="chart-container"></div>
             </el-card>
             
             <el-card class="chart-card">
@@ -175,9 +303,7 @@ const menuItems = [
                   <span>订单趋势</span>
                 </div>
               </template>
-              <div class="chart-placeholder">
-                图表区域（订单趋势）
-              </div>
+              <div ref="orderChartRef" class="chart-container"></div>
             </el-card>
           </div>
         </div>
@@ -304,13 +430,33 @@ const menuItems = [
   align-items: center;
 }
 
-.chart-placeholder {
+.chart-container {
   height: 300px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  background-color: #f5f7fa;
-  color: #909399;
-  border-radius: 4px;
+  width: 100%;
+}
+
+/* 响应式处理 */
+@media (max-width: 992px) {
+  .row {
+    flex-direction: column;
+  }
+  
+  .chart-card {
+    margin-bottom: 20px;
+  }
+  
+  .stats-container {
+    flex-wrap: wrap;
+  }
+  
+  .stats-container > div {
+    flex-basis: calc(50% - 10px);
+  }
+}
+
+@media (max-width: 768px) {
+  .stats-container > div {
+    flex-basis: 100%;
+  }
 }
 </style> 
