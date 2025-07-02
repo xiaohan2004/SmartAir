@@ -72,6 +72,13 @@ public class UserController {
         if (updatedUser.getPhone() != null) {
             user.setPhone(updatedUser.getPhone());
         }
+        if (updatedUser.getRealName() != null) {
+            user.setRealName(updatedUser.getRealName());
+        }
+        if (updatedUser.getIdCard() != null) {
+            user.setIdCard(updatedUser.getIdCard());
+        }
+
         // 忽略密码更新，即使用户携带 password 字段
         boolean success = userService.updateById(user);
         if (success) {
