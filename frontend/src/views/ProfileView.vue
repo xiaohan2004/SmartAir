@@ -115,6 +115,29 @@ const orders = ref([]);
 // 会话数据
 const conversations = ref([]);
 
+// 订单详情相关
+const detailDialogVisible = ref(false);
+const detailLoading = ref(false);
+const orderDetail = reactive({
+  orderId: '',
+  userId: '',
+  username: '',
+  realName: '',
+  phone: '',
+  flightId: '',
+  flightNo: '',
+  airline: '',
+  departureCity: '',
+  arrivalCity: '',
+  scheduledDepartureTime: '',
+  scheduledArrivalTime: '',
+  aircraftType: '',
+  price: '',
+  seatNo: '',
+  status: 0,
+  createdAt: ''
+});
+
 // 获取用户信息
 const getUserData = async () => {
   try {
@@ -175,7 +198,14 @@ const getUserData = async () => {
       // 获取订单数据
       const orderResponse = await orderApi.listOrdersWithDetail(currentUser.id);
       if (orderResponse && orderResponse.code === 200) {
-        orders.value = orderResponse.data || [];
+        // 处理订单数据，添加状态文本
+        orders.value = (orderResponse.data || []).map(order => {
+          return {
+            ...order,
+            statusText: order.status === 1 ? '购票成功' : order.status === 2 ? '已取消' : '未知'
+          };
+        });
+        console.log('获取到的订单数据:', orders.value);
       } else {
         console.error('获取订单数据失败:', orderResponse);
       }
@@ -315,8 +345,51 @@ const submitPasswordChange = async () => {
 };
 
 // 查看订单详情
-const viewOrderDetail = (orderId) => {
-  router.push(`/order/${orderId}`);
+const viewOrderDetail = async (orderId) => {
+  try {
+    detailLoading.value = true;
+    detailDialogVisible.value = true;
+    
+    const response = await orderApi.getOrderDetail(orderId);
+    
+    if (response && response.code === 200 && response.data) {
+      // 清空之前的数据
+      Object.keys(orderDetail).forEach(key => {
+        orderDetail[key] = '';
+      });
+      
+      // 填充新数据
+      Object.assign(orderDetail, {
+        orderId: response.data.orderId || orderId, // 确保使用正确的ID字段
+        userId: response.data.userId || '',
+        username: response.data.username || '',
+        realName: response.data.realName || '',
+        phone: response.data.phone || '',
+        flightId: response.data.flightId || '',
+        flightNo: response.data.flightNo || '',
+        airline: response.data.airline || '',
+        departureCity: response.data.departureCity || '',
+        arrivalCity: response.data.arrivalCity || '',
+        scheduledDepartureTime: response.data.scheduledDepartureTime || '',
+        scheduledArrivalTime: response.data.scheduledArrivalTime || '',
+        aircraftType: response.data.aircraftType || '',
+        price: response.data.price || '',
+        seatNo: response.data.seatNo || '',
+        status: response.data.status || 0,
+        createdAt: response.data.createdAt || ''
+      });
+      
+      console.log('处理后的订单详情:', orderDetail);
+    } else {
+      throw new Error(response?.message || '获取订单详情失败');
+    }
+  } catch (error) {
+    console.error('获取订单详情失败:', error);
+    ElMessage.error(error.message || '获取订单详情失败');
+    detailDialogVisible.value = false;
+  } finally {
+    detailLoading.value = false;
+  }
 };
 
 // 查看会话详情
@@ -327,6 +400,51 @@ const viewConversationDetail = (conversationId) => {
 // 返回上一页
 const goBack = () => {
   router.back();
+};
+
+// 格式化日期时间
+const formatDateTime = (dateTimeStr) => {
+  if (!dateTimeStr) return '未知';
+  
+  try {
+    const date = new Date(dateTimeStr);
+    return date.toLocaleString('zh-CN', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    });
+  } catch (error) {
+    console.error('日期格式化错误:', error);
+    return dateTimeStr;
+  }
+};
+
+// 获取订单状态名称
+const getStatusName = (status) => {
+  switch (status) {
+    case 1:
+      return '购票成功';
+    case 2:
+      return '已取消';
+    default:
+      return '未知状态';
+  }
+};
+
+// 获取订单状态对应的标签类型
+const getStatusType = (status) => {
+  switch (status) {
+    case 1:
+      return 'success';
+    case 2:
+      return 'danger';
+    default:
+      return 'info';
+  }
 };
 
 // 组件挂载时获取用户数据
@@ -488,30 +606,21 @@ onMounted(() => {
           <el-tab-pane label="我的订单" name="orders" v-if="isNormalUser">
             <div class="orders-container">
               <el-table :data="orders" style="width: 100%">
-                <el-table-column prop="id" label="订单号" width="140" />
-                <el-table-column prop="flightNo" label="航班号" width="100" />
-                <el-table-column label="行程" min-width="150">
-                  <template #default="scope">
-                    {{ scope.row.departureCity }} → {{ scope.row.arrivalCity }}
-                  </template>
-                </el-table-column>
-                <el-table-column prop="departureTime" label="出发日期" width="120" />
-                <el-table-column prop="price" label="价格" width="100">
-                  <template #default="scope">
-                    ¥{{ scope.row.price }}
-                  </template>
-                </el-table-column>
-                <el-table-column prop="status" label="状态" width="100">
+                <el-table-column prop="id" label="订单号" min-width="120" />
+                <el-table-column prop="flightId" label="航班ID" min-width="120" />
+                <el-table-column prop="seatNo" label="座位号" min-width="120" />
+                <el-table-column prop="statusText" label="状态" min-width="120">
                   <template #default="scope">
                     <el-tag
-                      :type="scope.row.status === '已出票' ? 'warning' : 
-                             scope.row.status === '已完成' ? 'success' : 'info'"
+                      :type="scope.row.status === 1 ? 'success' : 
+                             scope.row.status === 2 ? 'danger' : 'info'"
                     >
-                      {{ scope.row.status }}
+                      {{ scope.row.statusText }}
                     </el-tag>
                   </template>
                 </el-table-column>
-                <el-table-column label="操作" width="120">
+                <el-table-column prop="createdAt" label="创建时间" min-width="180" />
+                <el-table-column label="操作" min-width="120" fixed="right">
                   <template #default="scope">
                     <el-button size="small" @click="viewOrderDetail(scope.row.id)">查看详情</el-button>
                   </template>
@@ -524,17 +633,17 @@ onMounted(() => {
           <el-tab-pane label="历史会话" name="conversations" v-if="isNormalUser">
             <div class="conversations-container">
               <el-table :data="conversations" style="width: 100%">
-                <el-table-column prop="serviceUserName" label="客服" width="120" />
+                <el-table-column prop="serviceUserName" label="客服" min-width="120" />
                 <el-table-column prop="lastMessage" label="最后消息" min-width="200" show-overflow-tooltip />
-                <el-table-column prop="updatedAt" label="时间" width="160" />
-                <el-table-column prop="status" label="状态" width="100">
+                <el-table-column prop="updatedAt" label="时间" min-width="160" />
+                <el-table-column prop="status" label="状态" min-width="120">
                   <template #default="scope">
                     <el-tag type="info">{{ scope.row.status === 0 ? '进行中' : 
                                           scope.row.status === 1 ? '已结束' :
                                           scope.row.status === 2 ? '已转接' : '未知' }}</el-tag>
                   </template>
                 </el-table-column>
-                <el-table-column label="操作" width="120">
+                <el-table-column label="操作" min-width="120" fixed="right">
                   <template #default="scope">
                     <el-button size="small" @click="viewConversationDetail(scope.row.uuid)">查看详情</el-button>
                   </template>
@@ -588,6 +697,50 @@ onMounted(() => {
         <span class="dialog-footer">
           <el-button @click="passwordDialogVisible = false">取消</el-button>
           <el-button type="primary" @click="submitPasswordChange" :loading="passwordLoading">确认</el-button>
+        </span>
+      </template>
+    </el-dialog>
+    
+    <!-- 订单详情弹窗 -->
+    <el-dialog
+      v-model="detailDialogVisible"
+      title="订单详情"
+      width="650px"
+      destroy-on-close
+    >
+      <div v-loading="detailLoading">
+        <el-descriptions :column="2" border>
+          <el-descriptions-item label="订单ID" :span="2">{{ orderDetail.orderId }}</el-descriptions-item>
+          <el-descriptions-item label="座位号">{{ orderDetail.seatNo }}</el-descriptions-item>
+          <el-descriptions-item label="订单状态">
+            <el-tag :type="getStatusType(orderDetail.status)">{{ getStatusName(orderDetail.status) }}</el-tag>
+          </el-descriptions-item>
+          <el-descriptions-item label="下单时间" :span="2">{{ formatDateTime(orderDetail.createdAt) }}</el-descriptions-item>
+          
+          <el-descriptions-item label="用户ID">{{ orderDetail.userId }}</el-descriptions-item>
+          <el-descriptions-item label="用户名">{{ orderDetail.username }}</el-descriptions-item>
+          <el-descriptions-item label="真实姓名">{{ orderDetail.realName || '未提供' }}</el-descriptions-item>
+          <el-descriptions-item label="联系电话">{{ orderDetail.phone || '未提供' }}</el-descriptions-item>
+          
+          <el-descriptions-item label="航班信息" :span="2" class="flight-info-header">
+            <div class="flight-header">
+              <span class="flight-no">{{ orderDetail.flightNo }}</span>
+              <span class="airline">{{ orderDetail.airline }}</span>
+            </div>
+          </el-descriptions-item>
+          
+          <el-descriptions-item label="出发城市">{{ orderDetail.departureCity }}</el-descriptions-item>
+          <el-descriptions-item label="到达城市">{{ orderDetail.arrivalCity }}</el-descriptions-item>
+          <el-descriptions-item label="计划出发时间">{{ formatDateTime(orderDetail.scheduledDepartureTime) }}</el-descriptions-item>
+          <el-descriptions-item label="计划到达时间">{{ formatDateTime(orderDetail.scheduledArrivalTime) }}</el-descriptions-item>
+          <el-descriptions-item label="机型">{{ orderDetail.aircraftType }}</el-descriptions-item>
+          <el-descriptions-item label="票价">¥{{ orderDetail.price }}</el-descriptions-item>
+        </el-descriptions>
+      </div>
+      
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="detailDialogVisible = false">关闭</el-button>
         </span>
       </template>
     </el-dialog>
@@ -798,11 +951,72 @@ onMounted(() => {
 .orders-container,
 .conversations-container {
   margin: 20px 0;
+  width: 100%;
+  overflow-x: auto;
+}
+
+/* 确保表格占满容器 */
+.orders-container .el-table,
+.conversations-container .el-table {
+  width: 100% !important;
+}
+
+/* 表格行样式 */
+.el-table .el-table__row {
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.el-table .el-table__row:hover {
+  background-color: #f5f7fa;
+}
+
+/* 订单详情样式 */
+.flight-info-header {
+  background-color: #f5f7fa;
+}
+
+.flight-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.flight-no {
+  font-weight: bold;
+  color: #409eff;
+  font-size: 16px;
+}
+
+.airline {
+  color: #606266;
+}
+
+:deep(.el-descriptions__label) {
+  width: 120px;
+  font-weight: bold;
+}
+
+:deep(.el-descriptions__content) {
+  line-height: 1.5;
+}
+
+:deep(.el-descriptions__body .el-descriptions__table .el-descriptions__cell) {
+  padding: 12px 10px;
 }
 
 @media (max-width: 768px) {
   .profile-card {
     width: 100%;
+  }
+  
+  .info-row {
+    flex-direction: column;
+  }
+  
+  .info-label {
+    width: 100%;
+    margin-bottom: 5px;
   }
 }
 </style> 
