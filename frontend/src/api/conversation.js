@@ -88,4 +88,12 @@ export function closeConversation(uuid) {
  */
 export function listAllConversations() {
   return get(`${API_PREFIX}/conversation/admin/list`);
-} 
+}
+
+/**
+ * 发送消息到会话
+ * @param {Promise} - 返回发送结果
+ */
+export function sendMessage(uuid, data) {
+  return post(`${API_PREFIX}/conversation/${uuid}/append`, data);
+}
