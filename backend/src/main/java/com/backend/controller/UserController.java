@@ -47,6 +47,7 @@ public class UserController {
         data.put("idCard", user.getIdCard());
         data.put("userType", user.getUserType());
         data.put("memberLevel", user.getMemberLevel());
+        data.put("createTime", user.getCreatedAt());
         
         return Result.success(data);
     }
