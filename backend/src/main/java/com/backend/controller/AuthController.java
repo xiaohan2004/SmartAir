@@ -55,7 +55,7 @@ public class AuthController {
         }
         
         // 验证密码
-        if (!passwordEncoder.matches(user.getPassword(), password)) {
+        if (!passwordEncoder.matches(password, user.getPassword())) {
             return Result.error(ResultCode.UNAUTHORIZED, "密码错误");
         }
 
