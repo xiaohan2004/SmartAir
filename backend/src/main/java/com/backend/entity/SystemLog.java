@@ -25,6 +25,26 @@ public class SystemLog {
     private Long id;
     
     /**
+     * 操作者ID
+     */
+    private Long operatorId;
+    
+    /**
+     * 操作类名
+     */
+    private String className;
+    
+    /**
+     * 操作方法名
+     */
+    private String methodName;
+    
+    /**
+     * 操作耗时(ms)
+     */
+    private Long executionTime;
+    
+    /**
      * 日志消息
      */
     private String message;

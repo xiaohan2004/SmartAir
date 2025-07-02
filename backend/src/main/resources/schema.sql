@@ -63,6 +63,12 @@ CREATE TABLE IF NOT EXISTS `conversation_index` (
 -- 系统日志表：system_log
 CREATE TABLE IF NOT EXISTS `system_log` (
   `id` BIGINT AUTO_INCREMENT PRIMARY KEY,
-  `message` TEXT NOT NULL,
-  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP
+  `operator_id` BIGINT COMMENT '操作者ID',
+  `class_name` VARCHAR(255) COMMENT '操作类名',
+  `method_name` VARCHAR(100) COMMENT '操作方法名',
+  `execution_time` BIGINT COMMENT '操作耗时(ms)',
+  `message` TEXT NOT NULL COMMENT '日志消息',
+  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  INDEX `idx_operator` (`operator_id`),
+  INDEX `idx_created_at` (`created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='系统操作日志表';
