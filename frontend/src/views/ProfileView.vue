@@ -344,6 +344,15 @@ const submitPasswordChange = async () => {
   }
 };
 
+const getUserName = (conversation) => {
+  return conversation.user ? conversation.user.username : `用户${conversation.userId}`;
+};
+
+const getServiceName = (conversation) => {
+  return conversation.serviceUser ? conversation.serviceUser.username : 
+         conversation.serviceUserName || '未知客服';
+};
+
 // 查看订单详情
 const viewOrderDetail = async (orderId) => {
   try {
@@ -392,9 +401,43 @@ const viewOrderDetail = async (orderId) => {
   }
 };
 
+// 会话详情对话框
+const dialogVisible = ref(false);
+const currentConversation = ref(null);
+const conversationMessages = ref([]);
+const loadingMessages = ref(false);
+
 // 查看会话详情
-const viewConversationDetail = (conversationId) => {
-  router.push(`/conversation/${conversationId}`);
+const viewConversationDetail = async (conversation) => {
+  currentConversation.value = conversation;
+  dialogVisible.value = true;
+  loadingMessages.value = true;
+  
+  try {
+    // 获取会话消息记录
+    const response = await conversationApi.getConversationMessages(conversation.conversationUuid);
+    if (response.code === 200) {
+      // 适配API返回的数据格式
+      if (response.data && response.data.messages) {
+        // 使用API返回的messages数组
+        conversationMessages.value = response.data.messages.map(msg => ({
+          userId: msg.speaker === 'user' ? conversation.userId : null,
+          message: msg.text,
+          createdAt: msg.timestamp
+        }));
+      } else {
+        conversationMessages.value = [];
+      }
+    } else {
+      throw new Error(response.message || '获取会话详情失败');
+    }
+  } catch (error) {
+    console.error('获取会话详情失败:', error);
+    ElMessage.error('获取会话详情失败: ' + (error.message || '未知错误'));
+    conversationMessages.value = [];
+  } finally {
+    loadingMessages.value = false;
+  }
 };
 
 // 返回上一页
@@ -645,7 +688,7 @@ onMounted(() => {
                 </el-table-column>
                 <el-table-column label="操作" min-width="120" fixed="right">
                   <template #default="scope">
-                    <el-button size="small" @click="viewConversationDetail(scope.row.uuid)">查看详情</el-button>
+                    <el-button size="small" @click="viewConversationDetail(scope.row)">查看详情</el-button>
                   </template>
                 </el-table-column>
               </el-table>
@@ -743,6 +786,50 @@ onMounted(() => {
           <el-button @click="detailDialogVisible = false">关闭</el-button>
         </span>
       </template>
+    </el-dialog>
+
+    <!-- 会话详情对话框 -->
+    <el-dialog 
+      v-model="dialogVisible" 
+      title="会话详情" 
+      width="700px"
+      destroy-on-close
+    >
+      <div v-loading="loadingMessages" class="conversation-detail">
+        <div v-if="currentConversation" class="conversation-info">
+          <p><strong>会话ID:</strong> {{ currentConversation.conversationUuid }}</p>
+          <p><strong>用户:</strong> {{ getUserName(currentConversation) }}</p>
+          <p><strong>客服:</strong> {{ getServiceName(currentConversation) }}</p>
+          <p><strong>状态:</strong> {{ getStatusName(currentConversation.status) }}</p>
+          <p><strong>更新时间:</strong> {{ formatDateTime(currentConversation.updatedAt) }}</p>
+        </div>
+        
+        <el-divider content-position="center">会话记录</el-divider>
+        
+        <div class="conversation-messages">
+          <div 
+            v-for="(message, index) in conversationMessages" 
+            :key="index"
+            class="message-item"
+            :class="{ 
+              'user-message': message.userId === currentConversation.userId,
+              'service-message': message.userId !== currentConversation.userId
+            }"
+          >
+            <div class="message-header">
+              <span class="message-sender">
+                {{ message.userId === currentConversation.userId ? getUserName(currentConversation) : getServiceName(currentConversation) }}
+              </span>
+              <span class="message-time">{{ formatDateTime(message.createdAt) }}</span>
+            </div>
+            <div class="message-content">{{ message.message }}</div>
+          </div>
+          
+          <div v-if="conversationMessages.length === 0" class="no-messages">
+            暂无会话记录
+          </div>
+        </div>
+      </div>
     </el-dialog>
   </div>
 </template>
@@ -990,6 +1077,56 @@ onMounted(() => {
 
 .airline {
   color: #606266;
+}
+
+.conversation-detail {
+  min-height: 300px;
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+.conversation-info {
+  margin-bottom: 20px;
+}
+
+.conversation-messages {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.message-item {
+  padding: 10px;
+  border-radius: 8px;
+  max-width: 80%;
+}
+
+.user-message {
+  align-self: flex-end;
+  background-color: #e1f3ff;
+}
+
+.service-message {
+  align-self: flex-start;
+  background-color: #f0f0f0;
+}
+
+.message-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 5px;
+  font-size: 12px;
+  color: #666;
+}
+
+.message-content {
+  word-break: break-word;
+}
+
+.no-messages {
+  text-align: center;
+  color: #999;
+  padding: 20px;
 }
 
 :deep(.el-descriptions__label) {
