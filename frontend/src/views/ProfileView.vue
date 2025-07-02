@@ -1,32 +1,79 @@
 <script setup>
-import { ref, reactive, computed } from 'vue';
+import { ref, reactive, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import HeaderNav from '@/components/common/HeaderNav.vue';
+import { userApi, orderApi, conversationApi } from '@/api';
+import { getCurrentUser, isLoggedIn } from '@/utils/auth';
+import { getMemberLevelName } from '@/utils/jwt';
 
 const router = useRouter();
 const activeTab = ref('info'); // 默认显示个人信息标签页
+const loading = ref(false);
+const passwordLoading = ref(false);
 
 // 用户信息
 const userInfo = reactive({
-  username: '测试用户',
-  role: '用户', // 可能是'用户'、'客服'或'管理员'
-  email: 'test@example.com',
-  phone: '138****1234',
-  joinTime: '2023-12-01'
+  id: '',
+  username: '',
+  role: '',
+  email: '',
+  phone: '',
+  joinTime: '',
+  realName: '',
+  idCard: '',
+  memberLevel: 1,
+  memberLevelName: '普通会员'
 });
 
 // 是否为普通用户
-const isNormalUser = computed(() => userInfo.role === '用户');
+const isNormalUser = computed(() => userInfo.role === 'user');
+
+// 会员等级对应的类型
+const memberLevelType = computed(() => {
+  switch (userInfo.memberLevel) {
+    case 1:
+      return ''; // 普通会员
+    case 2:
+      return 'info'; // 白银会员
+    case 3:
+      return 'warning'; // 黄金会员
+    case 4:
+      return 'success'; // 白金会员
+    case 5:
+      return 'danger'; // 钻石会员
+    default:
+      return '';
+  }
+});
+
+// 会员等级对应的图标
+const memberLevelIcon = computed(() => {
+  switch (userInfo.memberLevel) {
+    case 1:
+      return 'User';
+    case 2:
+      return 'Medal';
+    case 3:
+      return 'Trophy';
+    case 4:
+      return 'First';
+    case 5:
+      return 'Star';
+    default:
+      return 'User';
+  }
+});
 
 // 编辑状态
 const isEditing = ref(false);
 
 // 暂存编辑中的用户信息
 const editingUserInfo = reactive({
-  username: '',
   email: '',
-  phone: ''
+  phone: '',
+  realName: '',
+  idCard: ''
 });
 
 // 修改密码对话框
@@ -62,46 +109,138 @@ const passwordRules = {
   ]
 };
 
-// 模拟订单数据
-const orders = reactive([
-  { id: 'ORD20231201001', flight: 'CA1234', from: '北京', to: '上海', date: '2023-12-15', status: '已出票', price: '1280.00' },
-  { id: 'ORD20231115002', flight: 'MU5678', from: '上海', to: '广州', date: '2023-11-20', status: '已完成', price: '960.00' },
-  { id: 'ORD20231028003', flight: 'CZ8901', from: '广州', to: '成都', date: '2023-11-05', status: '已完成', price: '1420.00' }
-]);
+// 订单数据
+const orders = ref([]);
 
-// 模拟历史会话数据
-const conversations = reactive([
-  { id: 1, serviceUser: '客服小王', lastMessage: '您的问题已解决，感谢您的咨询！', time: '2023-12-01 14:30', status: '已结束' },
-  { id: 2, serviceUser: '客服小李', lastMessage: '您的退款申请已经处理完成，款项将在1-3个工作日内退回原支付账户。', time: '2023-11-15 10:25', status: '已结束' },
-  { id: 3, serviceUser: '客服小张', lastMessage: '您的改签申请已提交，请等待审核结果。', time: '2023-10-28 16:45', status: '已结束' }
-]);
+// 会话数据
+const conversations = ref([]);
+
+// 获取用户信息
+const getUserData = async () => {
+  try {
+    loading.value = true;
+    
+    // 检查是否登录
+    if (!isLoggedIn()) {
+      ElMessage.error('用户未登录，请先登录');
+      router.push('/login');
+      return;
+    }
+    
+    // 从JWT中获取当前用户基本信息
+    const currentUser = getCurrentUser();
+    if (!currentUser) {
+      ElMessage.error('无法获取用户信息，请重新登录');
+      router.push('/login');
+      return;
+    }
+    
+    // 更新用户基本信息
+    Object.assign(userInfo, {
+      id: currentUser.id,
+      username: currentUser.username,
+      role: currentUser.role
+    });
+    
+    // 调用API获取用户详情
+    const response = await userApi.getUserInfo(currentUser.id);
+    
+    if (response && response.data) {
+      const userData = response.data;
+      
+      // 更新用户详细信息
+      Object.assign(userInfo, {
+        email: userData.email || '',
+        phone: userData.phone || '',
+        realName: userData.realName || '',
+        idCard: userData.idCard || '',
+        joinTime: userData.createTime || '',
+        memberLevel: userData.memberLevel || 1,
+        memberLevelName: getMemberLevelName(userData.memberLevel || 1)
+      });
+      
+      // 初始化编辑表单
+      Object.assign(editingUserInfo, {
+        email: userInfo.email,
+        phone: userInfo.phone,
+        realName: userInfo.realName,
+        idCard: userInfo.idCard
+      });
+    }
+    
+    // 如果是普通用户，获取订单和会话数据
+    if (isNormalUser.value) {
+      // 获取订单数据
+      const orderResponse = await orderApi.listOrdersWithDetail(currentUser.id);
+      orders.value = orderResponse.data || [];
+      
+      // 获取会话数据
+      const conversationResponse = await conversationApi.listConversationsByUserId(currentUser.id);
+      conversations.value = conversationResponse.data || [];
+    }
+  } catch (error) {
+    console.error('获取用户数据失败:', error);
+    ElMessage.error(error.message || '获取用户数据失败');
+  } finally {
+    loading.value = false;
+  }
+};
 
 // 开始编辑
 const startEditing = () => {
-  editingUserInfo.username = userInfo.username;
-  editingUserInfo.email = userInfo.email;
-  editingUserInfo.phone = userInfo.phone;
   isEditing.value = true;
 };
 
 // 保存编辑
-const saveEditing = () => {
-  // 这里预留保存到后端的逻辑
-  userInfo.username = editingUserInfo.username;
-  userInfo.email = editingUserInfo.email;
-  userInfo.phone = editingUserInfo.phone;
-  
-  ElMessage.success('资料更新成功');
-  isEditing.value = false;
+const saveEditing = async () => {
+  try {
+    loading.value = true;
+    
+    const currentUser = getCurrentUser();
+    if (!currentUser) {
+      ElMessage.error('用户未登录，请重新登录');
+      router.push('/login');
+      return;
+    }
+    
+    // 调用API更新用户信息
+    await userApi.updateUserInfo({
+      id: currentUser.id,
+      email: editingUserInfo.email,
+      phone: editingUserInfo.phone,
+      realName: editingUserInfo.realName,
+      idCard: editingUserInfo.idCard
+    });
+    
+    // 更新本地用户信息
+    userInfo.email = editingUserInfo.email;
+    userInfo.phone = editingUserInfo.phone;
+    userInfo.realName = editingUserInfo.realName;
+    userInfo.idCard = editingUserInfo.idCard;
+    
+    ElMessage.success('资料更新成功');
+    isEditing.value = false;
+  } catch (error) {
+    console.error('更新用户信息失败:', error);
+    ElMessage.error(error.message || '更新用户信息失败');
+  } finally {
+    loading.value = false;
+  }
 };
 
 // 取消编辑
 const cancelEditing = () => {
+  // 重置编辑表单
+  editingUserInfo.email = userInfo.email;
+  editingUserInfo.phone = userInfo.phone;
+  editingUserInfo.realName = userInfo.realName;
+  editingUserInfo.idCard = userInfo.idCard;
   isEditing.value = false;
 };
 
 // 打开修改密码对话框
 const openPasswordDialog = () => {
+  // 重置密码表单
   passwordForm.oldPassword = '';
   passwordForm.newPassword = '';
   passwordForm.confirmPassword = '';
@@ -109,34 +248,54 @@ const openPasswordDialog = () => {
 };
 
 // 提交修改密码
-const submitPasswordChange = () => {
-  passwordFormRef.value.validate((valid) => {
-    if (valid) {
-      // 这里预留修改密码的后端请求逻辑
-      ElMessage.success('密码修改成功');
-      passwordDialogVisible.value = false;
-    } else {
-      return false;
+const submitPasswordChange = async () => {
+  try {
+    await passwordFormRef.value.validate();
+    
+    passwordLoading.value = true;
+    
+    const currentUser = getCurrentUser();
+    if (!currentUser) {
+      ElMessage.error('用户未登录，请重新登录');
+      return;
     }
-  });
+    
+    // 调用修改密码API
+    await userApi.changePassword({
+      userId: currentUser.id,
+      oldPassword: passwordForm.oldPassword,
+      newPassword: passwordForm.newPassword
+    });
+    
+    ElMessage.success('密码修改成功');
+    passwordDialogVisible.value = false;
+  } catch (error) {
+    console.error('修改密码失败:', error);
+    ElMessage.error(error.message || '修改密码失败');
+  } finally {
+    passwordLoading.value = false;
+  }
 };
 
 // 查看订单详情
 const viewOrderDetail = (orderId) => {
-  ElMessage.info(`查看订单详情：${orderId}`);
-  // 这里可以添加跳转到订单详情页或弹出订单详情对话框的逻辑
+  router.push(`/order/${orderId}`);
 };
 
 // 查看会话详情
 const viewConversationDetail = (conversationId) => {
-  ElMessage.info(`查看会话详情：${conversationId}`);
-  // 这里可以添加跳转到会话详情页或弹出会话详情对话框的逻辑
+  router.push(`/conversation/${conversationId}`);
 };
 
 // 返回上一页
 const goBack = () => {
   router.back();
 };
+
+// 组件挂载时获取用户数据
+onMounted(() => {
+  getUserData();
+});
 </script>
 
 <template>
@@ -153,12 +312,22 @@ const goBack = () => {
     
     <!-- 个人资料卡片 -->
     <div class="profile-content">
-      <el-card class="profile-card">
+      <el-card class="profile-card" v-loading="loading">
         <div class="profile-header">
           <el-avatar :size="80" icon="User" />
           <div class="profile-title">
             <h2>{{ userInfo.username }}</h2>
-            <el-tag>{{ userInfo.role }}</el-tag>
+            <div class="user-tags">
+              <el-tag>{{ userInfo.role }}</el-tag>
+              <el-tag 
+                :type="memberLevelType" 
+                class="member-level-tag"
+                :effect="userInfo.memberLevel > 2 ? 'dark' : 'light'"
+              >
+                <el-icon class="member-icon"><component :is="memberLevelIcon" /></el-icon>
+                {{ userInfo.memberLevelName }}
+              </el-tag>
+            </div>
           </div>
         </div>
         
@@ -184,8 +353,35 @@ const goBack = () => {
                   <div class="info-value">{{ userInfo.phone }}</div>
                 </div>
                 <div class="info-row">
+                  <div class="info-label">真实姓名</div>
+                  <div class="info-value">{{ userInfo.realName }}</div>
+                </div>
+                <div class="info-row">
+                  <div class="info-label">身份证号</div>
+                  <div class="info-value">{{ userInfo.idCard }}</div>
+                </div>
+                <div class="info-row">
                   <div class="info-label">注册时间</div>
                   <div class="info-value">{{ userInfo.joinTime }}</div>
+                </div>
+                <div class="info-row">
+                  <div class="info-label">会员等级</div>
+                  <div class="info-value">
+                    <el-tag 
+                      :type="memberLevelType" 
+                      class="member-level-tag"
+                      :effect="userInfo.memberLevel > 2 ? 'dark' : 'light'"
+                    >
+                      <el-icon class="member-icon"><component :is="memberLevelIcon" /></el-icon>
+                      {{ userInfo.memberLevelName }}
+                    </el-tag>
+                    <div class="member-benefits">
+                      <span v-if="userInfo.memberLevel >= 2">{{ 10 - userInfo.memberLevel }}折</span>
+                      <span v-if="userInfo.memberLevel >= 3">行李+{{ userInfo.memberLevel - 1 }}件</span>
+                      <span v-if="userInfo.memberLevel >= 4">优先登机</span>
+                      <span v-if="userInfo.memberLevel >= 5">专属客服</span>
+                    </div>
+                  </div>
                 </div>
               </div>
               
@@ -193,9 +389,7 @@ const goBack = () => {
               <div v-else class="profile-edit">
                 <div class="info-row">
                   <div class="info-label">用户名</div>
-                  <div class="info-value">
-                    <el-input v-model="editingUserInfo.username" />
-                  </div>
+                  <div class="info-value readonly">{{ userInfo.username }}</div>
                 </div>
                 <div class="info-row">
                   <div class="info-label">邮箱</div>
@@ -210,8 +404,33 @@ const goBack = () => {
                   </div>
                 </div>
                 <div class="info-row">
+                  <div class="info-label">真实姓名</div>
+                  <div class="info-value">
+                    <el-input v-model="editingUserInfo.realName" />
+                  </div>
+                </div>
+                <div class="info-row">
+                  <div class="info-label">身份证号</div>
+                  <div class="info-value">
+                    <el-input v-model="editingUserInfo.idCard" />
+                  </div>
+                </div>
+                <div class="info-row">
                   <div class="info-label">注册时间</div>
                   <div class="info-value readonly">{{ userInfo.joinTime }}</div>
+                </div>
+                <div class="info-row">
+                  <div class="info-label">会员等级</div>
+                  <div class="info-value readonly">
+                    <el-tag 
+                      :type="memberLevelType" 
+                      class="member-level-tag"
+                      :effect="userInfo.memberLevel > 2 ? 'dark' : 'light'"
+                    >
+                      <el-icon class="member-icon"><component :is="memberLevelIcon" /></el-icon>
+                      {{ userInfo.memberLevelName }}
+                    </el-tag>
+                  </div>
                 </div>
               </div>
             </div>
@@ -222,7 +441,7 @@ const goBack = () => {
                 <el-button @click="openPasswordDialog">修改密码</el-button>
               </template>
               <template v-else>
-                <el-button type="primary" @click="saveEditing">保存</el-button>
+                <el-button type="primary" @click="saveEditing" :loading="loading">保存</el-button>
                 <el-button @click="cancelEditing">取消</el-button>
               </template>
             </div>
@@ -233,13 +452,13 @@ const goBack = () => {
             <div class="orders-container">
               <el-table :data="orders" style="width: 100%">
                 <el-table-column prop="id" label="订单号" width="140" />
-                <el-table-column prop="flight" label="航班号" width="100" />
+                <el-table-column prop="flightNo" label="航班号" width="100" />
                 <el-table-column label="行程" min-width="150">
                   <template #default="scope">
-                    {{ scope.row.from }} → {{ scope.row.to }}
+                    {{ scope.row.departureCity }} → {{ scope.row.arrivalCity }}
                   </template>
                 </el-table-column>
-                <el-table-column prop="date" label="出发日期" width="120" />
+                <el-table-column prop="departureTime" label="出发日期" width="120" />
                 <el-table-column prop="price" label="价格" width="100">
                   <template #default="scope">
                     ¥{{ scope.row.price }}
@@ -268,17 +487,19 @@ const goBack = () => {
           <el-tab-pane label="历史会话" name="conversations" v-if="isNormalUser">
             <div class="conversations-container">
               <el-table :data="conversations" style="width: 100%">
-                <el-table-column prop="serviceUser" label="客服" width="120" />
+                <el-table-column prop="serviceUserName" label="客服" width="120" />
                 <el-table-column prop="lastMessage" label="最后消息" min-width="200" show-overflow-tooltip />
-                <el-table-column prop="time" label="时间" width="160" />
+                <el-table-column prop="updatedAt" label="时间" width="160" />
                 <el-table-column prop="status" label="状态" width="100">
                   <template #default="scope">
-                    <el-tag type="info">{{ scope.row.status }}</el-tag>
+                    <el-tag type="info">{{ scope.row.status === 0 ? '进行中' : 
+                                          scope.row.status === 1 ? '已结束' :
+                                          scope.row.status === 2 ? '已转接' : '未知' }}</el-tag>
                   </template>
                 </el-table-column>
                 <el-table-column label="操作" width="120">
                   <template #default="scope">
-                    <el-button size="small" @click="viewConversationDetail(scope.row.id)">查看详情</el-button>
+                    <el-button size="small" @click="viewConversationDetail(scope.row.uuid)">查看详情</el-button>
                   </template>
                 </el-table-column>
               </el-table>
@@ -329,7 +550,7 @@ const goBack = () => {
       <template #footer>
         <span class="dialog-footer">
           <el-button @click="passwordDialogVisible = false">取消</el-button>
-          <el-button type="primary" @click="submitPasswordChange">确认</el-button>
+          <el-button type="primary" @click="submitPasswordChange" :loading="passwordLoading">确认</el-button>
         </span>
       </template>
     </el-dialog>
@@ -401,7 +622,6 @@ const goBack = () => {
 .profile-header {
   display: flex;
   align-items: center;
-  margin-bottom: 20px;
 }
 
 .profile-title {
@@ -409,7 +629,82 @@ const goBack = () => {
 }
 
 .profile-title h2 {
-  margin-bottom: 10px;
+  margin: 0 0 5px 0;
+}
+
+.user-tags {
+  display: flex;
+  gap: 10px;
+}
+
+.member-level-tag {
+  display: flex;
+  align-items: center;
+  font-weight: bold;
+  padding: 0 10px;
+}
+
+.member-level-tag.el-tag--info {
+  background-color: #e9e9eb;
+  border-color: #d3d4d6;
+}
+
+.member-level-tag.el-tag--warning {
+  background-color: #faecd8;
+  border-color: #e6a23c;
+  color: #b88230;
+}
+
+.member-level-tag.el-tag--success {
+  background-color: #f0f9eb;
+  border-color: #85ce61;
+  color: #529b2e;
+}
+
+.member-level-tag.el-tag--danger {
+  background-color: #fef0f0;
+  border-color: #f56c6c;
+  color: #c45656;
+}
+
+.member-level-tag.el-tag--warning.el-tag--dark {
+  background-color: #e6a23c;
+  border-color: #e6a23c;
+  color: #ffffff;
+}
+
+.member-level-tag.el-tag--success.el-tag--dark {
+  background-color: #67c23a;
+  border-color: #67c23a;
+  color: #ffffff;
+}
+
+.member-level-tag.el-tag--danger.el-tag--dark {
+  background-color: #f56c6c;
+  border-color: #f56c6c;
+  color: #ffffff;
+}
+
+.member-icon {
+  margin-right: 5px;
+}
+
+.member-benefits {
+  margin-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.member-benefits span {
+  font-size: 12px;
+  color: #666;
+  background-color: #f5f7fa;
+  padding: 2px 6px;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
 }
 
 .profile-tabs {
@@ -429,15 +724,17 @@ const goBack = () => {
 
 .info-row {
   display: flex;
-  height: 50px;
+  min-height: 50px;
   margin-bottom: 10px;
-  align-items: center;
+  align-items: flex-start;
+  padding: 8px 0;
 }
 
 .info-label {
   width: 100px;
   color: #909399;
   flex-shrink: 0;
+  padding-top: 8px;
 }
 
 .info-value {
