@@ -11,6 +11,15 @@ export function getConversation(uuid) {
 }
 
 /**
+ * 获取会话消息记录
+ * @param {string} uuid - 会话UUID
+ * @returns {Promise} - 返回会话消息记录
+ */
+export function getConversationMessages(uuid) {
+  return get(`${API_PREFIX}/conversation/${uuid}/messages`);
+}
+
+/**
  * 获取用户会话列表
  * @param {number} userId - 用户ID
  * @returns {Promise} - 返回会话列表
@@ -49,11 +58,11 @@ export function createConversation(data) {
 /**
  * 转接会话到客服
  * @param {string} uuid - 会话UUID
- * @param {Object} data - 转接数据 {serviceUserId}
+ * @param {number} serviceUserId - 客服用户ID
  * @returns {Promise} - 返回转接结果
  */
-export function transferToService(uuid, data) {
-  return put(`${API_PREFIX}/conversation/${uuid}/transfer`, data);
+export function transferConversation(uuid, serviceUserId) {
+  return put(`${API_PREFIX}/conversation/${uuid}/transfer`, { serviceUserId });
 }
 
 /**

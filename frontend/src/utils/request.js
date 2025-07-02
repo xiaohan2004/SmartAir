@@ -105,11 +105,11 @@ export function put(url, data) {
 }
 
 // 封装DELETE请求
-export function del(url, params) {
+export function del(url, data) {
   return service({
     url,
     method: 'delete',
-    params
+    data
   });
 }
 
