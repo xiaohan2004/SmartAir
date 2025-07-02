@@ -3,6 +3,7 @@ import { ref, reactive } from 'vue';
 import HeaderNav from '@/components/common/HeaderNav.vue';
 import SideMenu from '@/components/common/SideMenu.vue';
 import StatCard from '@/components/admin/StatCard.vue';
+import ConversationManagement from '@/components/admin/ConversationManagement.vue';
 
 const username = ref('管理员');
 const activeMenu = ref('dashboard');
@@ -12,6 +13,7 @@ const menuItems = [
   { index: 'dashboard', title: '仪表盘', icon: 'DataBoard' },
   { index: 'flights', title: '航班管理', icon: 'Location' },
   { index: 'orders', title: '订单管理', icon: 'Ticket' },
+  { index: 'conversations', title: '会话管理', icon: 'ChatDotRound' },
   { index: 'prompts', title: '提示词管理', icon: 'ChatLineRound' },
   { index: 'knowledge', title: '知识库管理', icon: 'Document' },
   { index: 'accounts', title: '账号管理', icon: 'UserFilled' },
@@ -131,16 +133,26 @@ const flights = [
           </el-table>
         </div>
         
+        <!-- 订单管理 -->
+        <div v-if="activeMenu === 'orders'">
+          <h2 class="page-title">订单管理</h2>
+          <el-empty description="订单管理模块开发中" />
+        </div>
+        
+        <!-- 会话管理 -->
+        <div v-if="activeMenu === 'conversations'">
+          <h2 class="page-title">会话管理</h2>
+          <ConversationManagement />
+        </div>
+        
         <!-- 其他模块占位 -->
-        <div v-if="['orders', 'prompts', 'knowledge', 'accounts', 'logs'].includes(activeMenu)">
+        <div v-if="['prompts', 'knowledge', 'accounts', 'logs'].includes(activeMenu)">
           <h2 class="page-title">{{ 
-            activeMenu === 'orders' ? '订单管理' :
             activeMenu === 'prompts' ? '提示词管理' :
             activeMenu === 'knowledge' ? '知识库管理' :
             activeMenu === 'accounts' ? '账号管理' : '日志信息'
           }}</h2>
           <el-empty :description="`${
-            activeMenu === 'orders' ? '订单管理' :
             activeMenu === 'prompts' ? '提示词管理' :
             activeMenu === 'knowledge' ? '知识库管理' :
             activeMenu === 'accounts' ? '账号管理' : '日志信息'
