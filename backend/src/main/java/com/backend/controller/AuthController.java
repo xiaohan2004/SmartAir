@@ -76,7 +76,6 @@ public class AuthController {
         tokenClaims.put("userId", user.getId());
         tokenClaims.put("username", user.getUsername());
         tokenClaims.put("userType", user.getUserType());
-        tokenClaims.put("memberLevel", user.getMemberLevel());
 
         String token = JwtUtil.generateJwt(tokenClaims);
         
