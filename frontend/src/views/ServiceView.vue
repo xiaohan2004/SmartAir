@@ -30,6 +30,31 @@ const customers = ref([]);
 // 订单列表
 const orders = ref([]);
 
+// 订单详情数据
+const orderDetail = reactive({
+  orderId: '',
+  seatNo: '',
+  status: 0,
+  createdAt: '',
+  userId: '',
+  username: '',
+  realName: '',
+  phone: '',
+  flightId: '',
+  flightNo: '',
+  departureCity: '',
+  arrivalCity: '',
+  scheduledDepartureTime: '',
+  scheduledArrivalTime: '',
+  airline: '',
+  aircraftType: '',
+  price: 0
+});
+
+// 订单详情弹窗控制
+const detailDialogVisible = ref(false);
+const detailLoading = ref(false);
+
 // 当前客户ID
 const currentCustomerId = computed(() => currentChat.value?.userId || null);
 
@@ -50,10 +75,12 @@ const initData = async () => {
     username.value = userData.username;
     serviceUserId.value = userData.userId;
     
-    // 加载客服的会话列表
-    const conversationsResponse = await conversationApi.listConversationsByServiceUserId(serviceUserId.value);
+    // 加载客服的会话列表 - 使用listAllConversationsByServiceUserId函数
+    const conversationsResponse = await conversationApi.listAllConversationsByServiceUserId(serviceUserId.value);
     
     if (conversationsResponse.code === 200) {
+      console.log('获取到的会话数据:', conversationsResponse.data);
+      
       // 转换会话数据格式为客户列表格式
       customers.value = conversationsResponse.data.map(conv => ({
         id: conv.id,
@@ -63,16 +90,12 @@ const initData = async () => {
         lastMessage: conv.lastMessage,
         time: new Date(conv.updatedAt).toLocaleTimeString(),
         conversationUuid: conv.conversationUuid,
-        status: conv.status === 1 ? '进行中' : conv.status === 2 ? '已转人工' : '已关闭'
+        status: conv.status === 0 ? '进行中' : 
+                conv.status === 1 ? '已结束' : 
+                conv.status === 2 ? '已转人工' : '未知'
       }));
-    }
-    
-    // 加载客服相关订单
-    // 这里我们获取所有订单，实际中可能需要根据客服负责的订单筛选
-    const ordersResponse = await orderApi.listAllOrders();
-    
-    if (ordersResponse.code === 200) {
-      orders.value = ordersResponse.data;
+    } else {
+      ElMessage.warning(conversationsResponse.message || '没有获取到会话数据');
     }
   } catch (error) {
     console.error('初始化数据失败:', error);
@@ -97,16 +120,7 @@ const selectCustomer = async (customer) => {
     const conversationResponse = await conversationApi.getConversation(customer.conversationUuid);
     
     if (conversationResponse.code === 200) {
-      // 这里需要有获取会话消息的API
-      // 暂时只添加最后一条消息
-      chatMessages.value = [
-        { 
-          content: customer.lastMessage || '会话开始', 
-          type: customer.lastMessage ? 'customer' : 'system', 
-          time: customer.time 
-        }
-      ];
-      
+
       // 获取客户详细信息
       if (customer.userId) {
         const userInfoResponse = await userApi.getUserInfo(customer.userId);
@@ -114,11 +128,48 @@ const selectCustomer = async (customer) => {
           // 更新客户信息
           customer.userInfo = userInfoResponse.data;
         }
+        
+        // 获取该用户的订单数据
+        const ordersResponse = await orderApi.listOrdersWithDetail(customer.userId);
+        if (ordersResponse.code === 200) {
+          orders.value = ordersResponse.data;
+          console.log('获取到用户订单数据:', ordersResponse.data);
+        } else {
+          orders.value = [];
+          ElMessage.warning(ordersResponse.message || `没有获取到用户 ${customer.name} 的订单数据`);
+        }
+      } else {
+        // 如果没有用户ID，清空订单列表
+        orders.value = [];
+      }
+
+      // 获取会话的详细消息记录
+      const messagesResponse = await conversationApi.getConversationMessages(customer.conversationUuid);
+      
+      if (messagesResponse.code === 200 && messagesResponse.data) {
+        console.log('获取到的消息数据:', messagesResponse.data);
+        
+        // 转换消息格式
+        chatMessages.value = messagesResponse.data.map(msg => ({
+          content: msg.content,
+          type: msg.isService ? 'service' : 'customer',
+          time: new Date(msg.createdAt).toLocaleTimeString()
+        }));
+      } else {
+        // 如果没有消息记录，至少显示一条系统消息
+        chatMessages.value = [
+          { 
+            content: customer.lastMessage || '会话开始', 
+            type: customer.lastMessage ? 'customer' : 'system', 
+            time: customer.time 
+          }
+        ];
+        ElMessage.warning(messagesResponse?.message || '没有获取到聊天记录');
       }
     }
   } catch (error) {
     console.error('加载会话失败:', error);
-    ElMessage.error('加载会话失败');
+    ElMessage.error('加载会话失败: ' + (error.message || '未知错误'));
   } finally {
     loading.value = false;
   }
@@ -138,22 +189,17 @@ const handleSendMessage = async (messageText) => {
     chatMessages.value.push(serviceMsg);
     
     // 调用API发送消息
-    const response = await fetch(`/api/conversation/${currentChat.value.conversationUuid}/message`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'token': localStorage.getItem('token')
-      },
-      body: JSON.stringify({
-        message: messageText,
+    const response = await conversationApi.sendMessage(
+      currentChat.value.conversationUuid,
+      {
+        content: messageText,
         userId: serviceUserId.value,
         isService: true
-      })
-    });
+      }
+    );
     
-    const data = await response.json();
-    if (data.code !== 200) {
-      throw new Error(data.message || '发送消息失败');
+    if (response.code !== 200) {
+      throw new Error(response.message || '发送消息失败');
     }
     
     // 更新会话最后一条消息
@@ -164,7 +210,7 @@ const handleSendMessage = async (messageText) => {
     }
   } catch (error) {
     console.error('发送消息失败:', error);
-    ElMessage.error('发送消息失败');
+    ElMessage.error('发送消息失败: ' + (error.message || '未知错误'));
   }
 };
 
@@ -219,16 +265,145 @@ const handleCloseConversation = () => {
 };
 
 // 获取当前客户的订单
-const getCustomerOrders = (customerName) => {
-  if (!currentChat.value || !currentChat.value.userId) return [];
-  
-  // 根据userId过滤订单
-  return orders.value.filter(order => order.userId === currentChat.value.userId);
+const getCustomerOrders = () => {
+  if (!currentChat.value) return [];
+  return orders.value;
 };
 
 // 进入个人中心
 const goToProfile = () => {
   router.push('/profile');
+};
+
+// 格式化日期时间
+const formatDateTime = (dateString) => {
+  if (!dateString) return '未知';
+  const date = new Date(dateString);
+  return date.toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  });
+};
+
+// 获取状态类型
+const getStatusType = (status) => {
+  return status === 1 ? 'success' : 'danger';
+};
+
+// 获取状态名称
+const getStatusName = (status) => {
+  return status === 1 ? '已完成' : '已取消';
+};
+
+// 查看订单详情
+const viewOrderDetail = async (orderId) => {
+  detailLoading.value = true;
+  detailDialogVisible.value = true;
+  
+  try {
+    // 尝试调用获取详细订单信息的API
+    let response;
+    try {
+      response = await orderApi.getOrderDetail(orderId);
+    } catch (detailError) {
+      console.warn('获取订单详情失败，尝试获取基本订单信息:', detailError);
+      // 如果获取详情失败，尝试获取基本订单信息
+      response = await orderApi.getOrderById(orderId);
+    }
+    
+    if (response.code === 200) {
+      // 更新订单详情数据
+      const data = response.data;
+      
+      // 根据返回的数据结构设置订单详情
+      Object.assign(orderDetail, {
+        orderId: data.id || data.orderId,
+        seatNo: data.seatNo || '',
+        status: data.status,
+        createdAt: data.createdAt,
+        
+        // 用户信息 - 可能来自关联数据或详情API
+        userId: data.userId,
+        username: data.username || (data.user ? data.user.username : `用户${data.userId}`),
+        realName: data.realName || (data.user ? data.user.realName : ''),
+        phone: data.phone || (data.user ? data.user.phone : ''),
+        
+        // 航班信息 - 可能来自关联数据或详情API
+        flightId: data.flightId,
+        flightNo: data.flightNo || (data.flight ? data.flight.flightNo : `航班${data.flightId}`),
+        departureCity: data.departureCity || (data.flight ? data.flight.departureCity : ''),
+        arrivalCity: data.arrivalCity || (data.flight ? data.flight.arrivalCity : ''),
+        scheduledDepartureTime: data.scheduledDepartureTime || (data.flight ? data.flight.scheduledDepartureTime : ''),
+        scheduledArrivalTime: data.scheduledArrivalTime || (data.flight ? data.flight.scheduledArrivalTime : ''),
+        airline: data.airline || (data.flight ? data.flight.airline : ''),
+        aircraftType: data.aircraftType || (data.flight ? data.flight.aircraftType : ''),
+        price: data.price || (data.flight ? data.flight.price : 0)
+      });
+      
+      console.log('订单详情:', orderDetail);
+    } else {
+      throw new Error(response.message || '获取订单详情失败');
+    }
+  } catch (error) {
+    console.error('获取订单详情失败:', error);
+    ElMessage.error('获取订单详情失败');
+    detailDialogVisible.value = false;
+  } finally {
+    detailLoading.value = false;
+  }
+};
+
+// 取消订单
+const cancelOrder = async (order) => {
+  if (order.status !== 1) {
+    ElMessage.warning('只能取消未完成的订单');
+    return;
+  }
+  
+  try {
+    ElMessageBox.confirm(
+      `确定要取消订单 ${order.id} 吗？`,
+      '取消订单',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning',
+      }
+    ).then(async () => {
+      try {
+        const response = await orderApi.cancelOrder(order.id);
+        
+        if (response.code === 200) {
+          ElMessage.success('订单已取消');
+          
+          // 更新订单状态
+          const index = orders.value.findIndex(o => o.id === order.id);
+          if (index !== -1) {
+            orders.value[index].status = 2; // 设置为已取消
+          }
+          
+          // 如果是在详情弹窗中取消的，也更新详情数据
+          if (detailDialogVisible.value && orderDetail.orderId === order.id) {
+            orderDetail.status = 2;
+          }
+        } else {
+          throw new Error(response.message || '取消订单失败');
+        }
+      } catch (error) {
+        console.error('取消订单失败:', error);
+        ElMessage.error('取消订单失败: ' + (error.message || '未知错误'));
+      }
+    }).catch(() => {
+      // 用户取消操作
+    });
+  } catch (error) {
+    console.error('取消订单操作失败:', error);
+    ElMessage.error('操作失败');
+  }
 };
 
 // 组件挂载时初始化数据
@@ -318,32 +493,45 @@ onMounted(initData);
         <div class="order-management-area">
           <h2 class="section-title">订单管理</h2>
           <div v-if="currentChat" class="customer-orders">
-            <el-table :data="getCustomerOrders(currentChat.name)" style="width: 100%" v-loading="loading">
+            <el-table :data="getCustomerOrders()" style="width: 100%; height: calc(100% - 40px)" v-loading="loading">
               <el-table-column prop="id" label="订单号" width="80" />
               <el-table-column prop="flightId" label="航班ID" width="80" />
               <el-table-column prop="seatNo" label="座位号" width="80" />
               <el-table-column prop="status" label="状态" width="80">
                 <template #default="scope">
                   <el-tag
-                    :type="scope.row.status === 1 ? 'success' : 'info'"
+                    :type="getStatusType(scope.row.status)"
                   >
-                    {{ scope.row.status === 1 ? '已完成' : '已取消' }}
+                    {{ getStatusName(scope.row.status) }}
                   </el-tag>
                 </template>
               </el-table-column>
-              <el-table-column label="操作" width="120">
+              <el-table-column label="创建时间" width="160">
+                <template #default="scope">
+                  {{ formatDateTime(scope.row.createdAt) }}
+                </template>
+              </el-table-column>
+              <el-table-column label="操作" width="160">
                 <template #default="scope">
                   <el-button 
                     size="small" 
                     type="primary" 
-                    @click="router.push(`/admin/order/${scope.row.id}`)"
+                    @click="viewOrderDetail(scope.row.id)"
                   >
                     详情
+                  </el-button>
+                  <el-button 
+                    size="small" 
+                    type="danger" 
+                    @click="cancelOrder(scope.row)"
+                    :disabled="scope.row.status !== 1"
+                  >
+                    取消
                   </el-button>
                 </template>
               </el-table-column>
             </el-table>
-            <div v-if="getCustomerOrders(currentChat.name).length === 0" class="no-orders">
+            <div v-if="getCustomerOrders().length === 0" class="no-orders">
               <el-empty description="暂无订单数据" />
             </div>
           </div>
@@ -353,6 +541,57 @@ onMounted(initData);
         </div>
       </div>
     </main>
+    
+    <!-- 订单详情弹窗 -->
+    <el-dialog
+      v-model="detailDialogVisible"
+      title="订单详情"
+      width="650px"
+      destroy-on-close
+    >
+      <div v-loading="detailLoading">
+        <el-descriptions :column="2" border>
+          <el-descriptions-item label="订单ID" :span="2">{{ orderDetail.orderId }}</el-descriptions-item>
+          <el-descriptions-item label="座位号">{{ orderDetail.seatNo }}</el-descriptions-item>
+          <el-descriptions-item label="订单状态">
+            <el-tag :type="getStatusType(orderDetail.status)">{{ getStatusName(orderDetail.status) }}</el-tag>
+          </el-descriptions-item>
+          <el-descriptions-item label="下单时间" :span="2">{{ formatDateTime(orderDetail.createdAt) }}</el-descriptions-item>
+          
+          <el-descriptions-item label="用户ID">{{ orderDetail.userId }}</el-descriptions-item>
+          <el-descriptions-item label="用户名">{{ orderDetail.username }}</el-descriptions-item>
+          <el-descriptions-item label="真实姓名">{{ orderDetail.realName || '未提供' }}</el-descriptions-item>
+          <el-descriptions-item label="联系电话">{{ orderDetail.phone || '未提供' }}</el-descriptions-item>
+          
+          <el-descriptions-item label="航班信息" :span="2" class="flight-info-header">
+            <div class="flight-header">
+              <span class="flight-no">{{ orderDetail.flightNo }}</span>
+              <span class="airline">{{ orderDetail.airline }}</span>
+            </div>
+          </el-descriptions-item>
+          
+          <el-descriptions-item label="出发城市">{{ orderDetail.departureCity }}</el-descriptions-item>
+          <el-descriptions-item label="到达城市">{{ orderDetail.arrivalCity }}</el-descriptions-item>
+          <el-descriptions-item label="计划出发时间">{{ formatDateTime(orderDetail.scheduledDepartureTime) }}</el-descriptions-item>
+          <el-descriptions-item label="计划到达时间">{{ formatDateTime(orderDetail.scheduledArrivalTime) }}</el-descriptions-item>
+          <el-descriptions-item label="机型">{{ orderDetail.aircraftType }}</el-descriptions-item>
+          <el-descriptions-item label="票价">¥{{ orderDetail.price }}</el-descriptions-item>
+        </el-descriptions>
+      </div>
+      
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="detailDialogVisible = false">关闭</el-button>
+          <el-button 
+            type="danger" 
+            @click="cancelOrder({id: orderDetail.orderId, status: orderDetail.status})"
+            :disabled="orderDetail.status !== 1"
+          >
+            取消订单
+          </el-button>
+        </span>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -492,5 +731,36 @@ onMounted(initData);
 
 .customer-details {
   margin-bottom: 20px;
+}
+
+.customer-orders {
+  height: calc(100% - 40px);
+  display: flex;
+  flex-direction: column;
+}
+
+.flight-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.flight-no {
+  font-weight: bold;
+  font-size: 16px;
+}
+
+.airline {
+  color: #606266;
+}
+
+.flight-info-header {
+  background-color: #f5f7fa;
+}
+
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
 }
 </style> 

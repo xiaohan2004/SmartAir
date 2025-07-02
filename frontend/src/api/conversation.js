@@ -38,6 +38,14 @@ export function listConversationsByServiceUserId(serviceUserId) {
 }
 
 /**
+ * 获取所有已转人工的会话
+ * @returns {Promise} - 返回会话列表
+ */
+export function listAllConversationsByServiceUserId(serviceUserId) {
+  return get(`${API_PREFIX}/conversation/transferred`);
+}
+
+/**
  * 获取用户活跃会话
  * @param {number} userId - 用户ID
  * @returns {Promise} - 返回活跃会话
