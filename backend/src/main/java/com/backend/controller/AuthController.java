@@ -42,16 +42,28 @@ public class AuthController {
     public Result login(@RequestBody Map<String, String> loginMap) {
         String username = loginMap.get("username");
         String password = loginMap.get("password");
-        
+        String role = loginMap.get("role");
         // 参数校验
-        if (username == null || password == null) {
-            return Result.error(ResultCode.PARAM_ERROR, "用户名或密码不能为空");
+        if (username == null || password == null || role == null) {
+            return Result.error(ResultCode.PARAM_ERROR, "用户名、密码以及用户角色不能为空");
         }
-        
+
+        int roleValue = switch (role) {
+            case "user" -> 1;
+            case "service" -> 2;
+            case "admin" -> 3;
+            default -> 0;
+        };
+
         // 查询用户
         User user = userService.getByUsername(username);
         if (user == null) {
             return Result.error(ResultCode.UNAUTHORIZED, "用户不存在");
+        }
+
+        // 检查用户角色
+        if (user.getUserType() != roleValue) {
+            return Result.error(ResultCode.UNAUTHORIZED, "用户角色不匹配");
         }
         
         // 验证密码
