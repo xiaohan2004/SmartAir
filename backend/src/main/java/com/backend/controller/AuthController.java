@@ -10,6 +10,7 @@ import com.backend.util.JwtUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
@@ -31,6 +32,8 @@ public class AuthController {
     private EmailUtil emailUtil;
     @Autowired
     private RedisDao redisDao;
+    @Autowired
+    private ObjectMapper objectMapper;
 
     /**
      * 用户登录
@@ -110,7 +113,7 @@ public class AuthController {
      */
     @PostMapping("/register")
     public Result register(@RequestBody Map<String, Object> params) {
-        User user = (User) params.get("user");
+        User user = objectMapper.convertValue(params.get("user"), User.class);
         String code = (String) params.get("code");
         String email = user.getEmail();
 
@@ -127,7 +130,7 @@ public class AuthController {
 
         // 验证验证码
         String storedCode = redisDao.getEmailVerificationCode(email, "register");
-        if (!code.equals(storedCode)) {
+        if (storedCode == null || !storedCode.equals(code)) {
             return Result.error(ResultCode.PARAM_ERROR, "验证码错误或已过期");
         }
 
@@ -177,7 +180,7 @@ public class AuthController {
 
         // 验证验证码
         String storedCode = redisDao.getEmailVerificationCode(email, "reset");
-        if (!storedCode.equals(code)) {
+        if (storedCode == null || !storedCode.equals(code)) {
             return Result.error(ResultCode.PARAM_ERROR, "验证码错误或已过期");
         }
 
