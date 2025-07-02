@@ -63,6 +63,17 @@ public class ConversationController {
     }
 
     /**
+     * 获取所有已转人工的会话
+     *
+     * @return 会话列表
+     */
+    @GetMapping("/transferred")
+    public Result listTransferredConversations() {
+        List<ConversationIndex> conversations = conversationIndexService.listTransferred();
+        return Result.success(conversations);
+    }
+
+    /**
      * 获取用户活跃会话
      *
      * @param userId 用户ID

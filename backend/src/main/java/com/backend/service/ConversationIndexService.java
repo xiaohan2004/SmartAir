@@ -75,4 +75,10 @@ public interface ConversationIndexService extends IService<ConversationIndex> {
      * @return 活跃会话，如果没有则返回null
      */
     ConversationIndex getActiveByUserId(Long userId);
+
+    /**
+     * 查询所有已转人工的会话列表
+     * @return 已转人工的会话列表
+     */
+    List<ConversationIndex> listTransferred();
 }
