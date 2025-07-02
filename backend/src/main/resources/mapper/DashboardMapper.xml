@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.backend.dao.mapper.DashboardMapper">
+
+    <!-- 📊 基础统计数据 -->
+    <select id="getBaseStats" resultType="com.backend.vo.DashboardData">
+        SELECT
+            (SELECT COUNT(*) FROM flight WHERE DATE(scheduled_departure_time) = CURDATE())        AS todayFlights,
+            (SELECT COUNT(*) FROM flight_order WHERE DATE(created_at) = CURDATE())                AS todayOrders,
+            (SELECT COUNT(DISTINCT user_id) FROM flight_order WHERE DATE(created_at) = CURDATE()) AS activeUsers,
+            (SELECT COUNT(*) FROM conversation_index WHERE status = 2)                            AS serviceTickets
+    </select>
+
+    <!-- 📅 最近 15 天日期（前7天到后7天） -->
+    <select id="getRecentDates" resultType="string">
+        SELECT DATE_FORMAT(DATE_ADD(CURDATE(), INTERVAL seq DAY), '%m-%d') AS day
+        FROM (
+                 SELECT -7 AS seq
+                 UNION ALL SELECT -6
+                 UNION ALL SELECT -5
+                 UNION ALL SELECT -4
+                 UNION ALL SELECT -3
+                 UNION ALL SELECT -2
+                 UNION ALL SELECT -1
+                 UNION ALL SELECT 0
+                 UNION ALL SELECT 1
+                 UNION ALL SELECT 2
+                 UNION ALL SELECT 3
+                 UNION ALL SELECT 4
+                 UNION ALL SELECT 5
+                 UNION ALL SELECT 6
+                 UNION ALL SELECT 7
+             ) days
+        ORDER BY seq
+    </select>
+
+    <!-- ✈️ 最近 15 天航班数（从旧到新） -->
+    <select id="getRecentDatesFlightCount" resultType="int">
+        SELECT IFNULL(f.count, 0)
+        FROM (
+                 SELECT DATE(scheduled_departure_time) AS date, COUNT(*) AS count
+                 FROM flight
+                 WHERE scheduled_departure_time BETWEEN DATE_SUB(CURDATE(), INTERVAL 7 DAY) AND DATE_ADD(CURDATE(), INTERVAL 7 DAY)
+                 GROUP BY DATE(scheduled_departure_time)
+             ) f
+                 RIGHT JOIN (
+            SELECT DATE_ADD(CURDATE(), INTERVAL seq DAY) AS date
+            FROM (
+                     SELECT -7 AS seq
+                     UNION ALL SELECT -6
+                     UNION ALL SELECT -5
+                     UNION ALL SELECT -4
+                     UNION ALL SELECT -3
+                     UNION ALL SELECT -2
+                     UNION ALL SELECT -1
+                     UNION ALL SELECT 0
+                     UNION ALL SELECT 1
+                     UNION ALL SELECT 2
+                     UNION ALL SELECT 3
+                     UNION ALL SELECT 4
+                     UNION ALL SELECT 5
+                     UNION ALL SELECT 6
+                     UNION ALL SELECT 7
+                 ) d
+        ) d ON f.date = d.date
+        ORDER BY d.date
+    </select>
+
+    <!-- 🧾 最近 15 天订单数（从旧到新） -->
+    <select id="getRecentDatesOrderCount" resultType="int">
+        SELECT IFNULL(o.count, 0)
+        FROM (
+                 SELECT DATE(created_at) AS date, COUNT(*) AS count
+                 FROM flight_order
+                 WHERE created_at BETWEEN DATE_SUB(CURDATE(), INTERVAL 7 DAY) AND DATE_ADD(CURDATE(), INTERVAL 7 DAY)
+                 GROUP BY DATE(created_at)
+             ) o
+                 RIGHT JOIN (
+            SELECT DATE_ADD(CURDATE(), INTERVAL seq DAY) AS date
+            FROM (
+                     SELECT -7 AS seq
+                     UNION ALL SELECT -6
+                     UNION ALL SELECT -5
+                     UNION ALL SELECT -4
+                     UNION ALL SELECT -3
+                     UNION ALL SELECT -2
+                     UNION ALL SELECT -1
+                     UNION ALL SELECT 0
+                     UNION ALL SELECT 1
+                     UNION ALL SELECT 2
+                     UNION ALL SELECT 3
+                     UNION ALL SELECT 4
+                     UNION ALL SELECT 5
+                     UNION ALL SELECT 6
+                     UNION ALL SELECT 7
+                 ) d
+        ) d ON o.date = d.date
+        ORDER BY d.date
+    </select>
+
+</mapper>
