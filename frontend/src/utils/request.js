@@ -33,7 +33,7 @@ service.interceptors.response.use(
     // 请求成功但业务失败
     if (res.code !== 200) {
       // 401: 未授权，token过期或无效
-      if (res.code === 401) {
+      if (res.code === 401 && res.msg !== '旧密码错误') {
         // 清除token
         localStorage.removeItem('token');
       }

@@ -4,7 +4,7 @@ import { useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import HeaderNav from '@/components/common/HeaderNav.vue';
 import { userApi, orderApi, conversationApi } from '@/api';
-import { getCurrentUser, isLoggedIn } from '@/utils/auth';
+import { getCurrentUser, isLoggedIn, logout } from '@/utils/auth';
 import { getMemberLevelName } from '@/utils/jwt';
 
 const router = useRouter();
@@ -145,7 +145,7 @@ const getUserData = async () => {
     // 调用API获取用户详情
     const response = await userApi.getUserInfo(currentUser.id);
     
-    if (response && response.data) {
+    if (response && response.code === 200 && response.data) {
       const userData = response.data;
       
       // 更新用户详细信息
@@ -166,17 +166,27 @@ const getUserData = async () => {
         realName: userInfo.realName,
         idCard: userInfo.idCard
       });
+    } else {
+      throw new Error(response?.message || '获取用户信息失败');
     }
     
     // 如果是普通用户，获取订单和会话数据
     if (isNormalUser.value) {
       // 获取订单数据
       const orderResponse = await orderApi.listOrdersWithDetail(currentUser.id);
-      orders.value = orderResponse.data || [];
+      if (orderResponse && orderResponse.code === 200) {
+        orders.value = orderResponse.data || [];
+      } else {
+        console.error('获取订单数据失败:', orderResponse);
+      }
       
       // 获取会话数据
       const conversationResponse = await conversationApi.listConversationsByUserId(currentUser.id);
-      conversations.value = conversationResponse.data || [];
+      if (conversationResponse && conversationResponse.code === 200) {
+        conversations.value = conversationResponse.data || [];
+      } else {
+        console.error('获取会话数据失败:', conversationResponse);
+      }
     }
   } catch (error) {
     console.error('获取用户数据失败:', error);
@@ -204,22 +214,25 @@ const saveEditing = async () => {
     }
     
     // 调用API更新用户信息
-    await userApi.updateUserInfo({
-      id: currentUser.id,
+    const response = await userApi.updateUser(currentUser.id, {
       email: editingUserInfo.email,
       phone: editingUserInfo.phone,
       realName: editingUserInfo.realName,
       idCard: editingUserInfo.idCard
     });
     
-    // 更新本地用户信息
-    userInfo.email = editingUserInfo.email;
-    userInfo.phone = editingUserInfo.phone;
-    userInfo.realName = editingUserInfo.realName;
-    userInfo.idCard = editingUserInfo.idCard;
-    
-    ElMessage.success('资料更新成功');
-    isEditing.value = false;
+    if (response && response.code === 200) {
+      // 更新本地用户信息
+      userInfo.email = editingUserInfo.email;
+      userInfo.phone = editingUserInfo.phone;
+      userInfo.realName = editingUserInfo.realName;
+      userInfo.idCard = editingUserInfo.idCard;
+      
+      ElMessage.success(response.message || '资料更新成功');
+      isEditing.value = false;
+    } else {
+      throw new Error(response?.message || '更新用户信息失败');
+    }
   } catch (error) {
     console.error('更新用户信息失败:', error);
     ElMessage.error(error.message || '更新用户信息失败');
@@ -261,14 +274,38 @@ const submitPasswordChange = async () => {
     }
     
     // 调用修改密码API
-    await userApi.changePassword({
-      userId: currentUser.id,
+    const response = await userApi.modifyPassword({
+      username: currentUser.username,
       oldPassword: passwordForm.oldPassword,
       newPassword: passwordForm.newPassword
     });
     
-    ElMessage.success('密码修改成功');
-    passwordDialogVisible.value = false;
+    // 检查响应状态
+    if (response) {
+      if (response.code === 200) {
+        // 真正成功的情况
+        ElMessage.success(response.message || '密码修改成功，请重新登录');
+        
+        // 关闭对话框
+        passwordDialogVisible.value = false;
+        
+        // 清空token并退出登录
+        logout();
+        
+        // 显示提示信息，延迟跳转到登录页
+        setTimeout(() => {
+          router.push('/');
+        }, 1500);
+      } else if (response.code === 401) {
+        // 旧密码错误
+        ElMessage.error(response.msg || '旧密码错误');
+      } else {
+        // 其他错误情况
+        throw new Error(response.msg || '修改密码失败');
+      }
+    } else {
+      throw new Error('服务器响应异常');
+    }
   } catch (error) {
     console.error('修改密码失败:', error);
     ElMessage.error(error.message || '修改密码失败');
