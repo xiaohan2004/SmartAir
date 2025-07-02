@@ -52,7 +52,7 @@ public class UserController {
     }
 
     /**
-    * 更新用户信息
+    * 更新用户信息（不允许修改密码）
     *
     * @param id 用户ID
     * @param updatedUser 用户
@@ -65,22 +65,48 @@ public class UserController {
             return Result.error(ResultCode.NOT_FOUND, "用户不存在");
         }
 
-        // 更新用户信息
+        // 更新用户信息（不包括密码）
         if (updatedUser.getEmail() != null) {
             user.setEmail(updatedUser.getEmail());
         }
         if (updatedUser.getPhone() != null) {
             user.setPhone(updatedUser.getPhone());
         }
-        if (updatedUser.getPassword() != null) {
-            user.setPassword(passwordEncoder.encode(updatedUser.getPassword()));
-        }
-
+        // 忽略密码更新，即使用户携带 password 字段
         boolean success = userService.updateById(user);
         if (success) {
             return Result.success("用户信息更新成功", null);
         } else {
             return Result.error("用户信息更新失败");
+        }
+    }
+
+    @PostMapping("/modifyPassword")
+    public Result modifyPassword(@RequestBody Map<String, String> params) {
+        String username = params.get("username");
+        String oldPassword = params.get("oldPassword");
+        String newPassword = params.get("newPassword");
+
+        if (username == null || oldPassword == null || newPassword == null) {
+            return Result.error(ResultCode.PARAM_ERROR, "用户ID、旧密码或新密码不能为空");
+        }
+
+        // 查询用户
+        User user = userService.getByUsername(username);
+        if (user == null) {
+            return Result.error(ResultCode.NOT_FOUND, "用户不存在");
+        }
+        // 验证旧密码
+        if (!passwordEncoder.matches(oldPassword, user.getPassword())) {
+            return Result.error(ResultCode.UNAUTHORIZED, "旧密码错误");
+        }
+        // 更新密码
+        user.setPassword(passwordEncoder.encode(newPassword));
+        boolean success = userService.updateById(user);
+        if (success) {
+            return Result.success("密码修改成功", null);
+        } else {
+            return Result.error("密码修改失败，请稍后重试");
         }
     }
 }
