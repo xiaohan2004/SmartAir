@@ -5,6 +5,8 @@ import * as orderApi from './order';
 import * as conversationApi from './conversation';
 import * as logApi from './log';
 import * as dashboardApi from './dashboard';
+import * as promptApi from './prompt';
+import * as knowledgeApi from './knowledge';
 
 export {
   authApi,
@@ -13,5 +15,7 @@ export {
   orderApi,
   conversationApi,
   logApi,
-  dashboardApi
+  dashboardApi,
+  promptApi,
+  knowledgeApi
 }; 

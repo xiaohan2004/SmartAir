@@ -16,7 +16,7 @@ export function getConversation(uuid) {
  * @returns {Promise} - 返回会话消息记录
  */
 export function getConversationMessages(uuid) {
-  return get(`${API_PREFIX}/conversation/${uuid}/messages`);
+  return get(`${API_PREFIX}/conversation/${uuid}/content`);
 }
 
 /**

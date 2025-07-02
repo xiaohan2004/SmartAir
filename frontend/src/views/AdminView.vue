@@ -3,7 +3,7 @@ import { ref, reactive, onMounted, watch, onUnmounted } from 'vue';
 import HeaderNav from '@/components/common/HeaderNav.vue';
 import SideMenu from '@/components/common/SideMenu.vue';
 import StatCard from '@/components/admin/StatCard.vue';
-import ConversationManagement from '@/components/admin/ConversationManagement.vue';
+import ConversationsManagement from '@/components/admin/ConversationsManagement.vue';
 import FlightsManagement from '@/components/admin/FlightsManagement.vue';
 import OrdersManagement from '@/components/admin/OrdersManagement.vue';
 import PromptsManagement from '@/components/admin/PromptsManagement.vue';
@@ -323,7 +323,7 @@ const menuItems = [
         <!-- 会话管理 -->
         <div v-if="activeMenu === 'conversations'">
           <h2 class="page-title">会话管理</h2>
-          <ConversationManagement />
+          <ConversationsManagement />
         </div>
         
         <!-- 提示词管理 -->

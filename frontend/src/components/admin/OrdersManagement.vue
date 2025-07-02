@@ -243,12 +243,12 @@ const getStatusName = (status) => {
 
 // 获取用户名
 const getUserName = (order) => {
-  return order.user ? order.user.username : `用户ID - ${order.userId}`;
+  return order.user ? order.user.username : `用户ID: ${order.userId}`;
 };
 
 // 获取航班号
 const getFlightNo = (order) => {
-  return order.flight ? order.flight.flightNo : `航班ID - ${order.flightId}`;
+  return order.flight ? order.flight.flightNo : `航班ID: ${order.flightId}`;
 };
 
 // 格式化日期时间

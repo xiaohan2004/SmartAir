@@ -20,9 +20,9 @@ const paginatedConversations = ref([]);
 // 会话状态选项
 const statusOptions = [
   { value: 'all', label: '全部' },
-  { value: 'active', label: '进行中' },
-  { value: 'transferred', label: '已转接' },
-  { value: 'closed', label: '已关闭' }
+  { value: 1, label: '活跃' },
+  { value: 2, label: '已转人工' },
+  { value: 3, label: '已关闭' }
 ];
 
 // 当前选中的会话状态
@@ -125,7 +125,17 @@ const viewConversationDetail = async (conversation) => {
     // 获取会话消息记录
     const response = await conversationApi.getConversationMessages(conversation.conversationUuid);
     if (response.code === 200) {
-      conversationMessages.value = response.data;
+      // 适配API返回的数据格式
+      if (response.data && response.data.messages) {
+        // 使用API返回的messages数组
+        conversationMessages.value = response.data.messages.map(msg => ({
+          userId: msg.speaker === 'user' ? conversation.userId : null,
+          message: msg.text,
+          createdAt: msg.timestamp
+        }));
+      } else {
+        conversationMessages.value = [];
+      }
     } else {
       throw new Error(response.message || '获取会话详情失败');
     }
@@ -210,9 +220,9 @@ const transferConversation = (conversationUuid) => {
 // 获取状态名称
 const getStatusName = (status) => {
   switch (status) {
-    case 'active': return '进行中';
-    case 'transferred': return '已转接';
-    case 'closed': return '已关闭';
+    case 1: return '活跃';
+    case 2: return '已转人工';
+    case 3: return '已关闭';
     default: return '未知';
   }
 };
@@ -220,9 +230,9 @@ const getStatusName = (status) => {
 // 获取状态标签类型
 const getStatusTagType = (status) => {
   switch (status) {
-    case 'active': return 'success';
-    case 'transferred': return 'warning';
-    case 'closed': return 'info';
+    case 1: return 'success';
+    case 2: return 'warning';
+    case 3: return 'info';
     default: return '';
   }
 };
@@ -329,7 +339,7 @@ onMounted(() => {
             <el-button 
               size="small" 
               type="warning"
-              :disabled="scope.row.status !== 'active'"
+              :disabled="scope.row.status !== 1"
               @click="transferConversation(scope.row.conversationUuid)"
             >
               转接
@@ -338,7 +348,7 @@ onMounted(() => {
             <el-button 
               size="small" 
               type="danger"
-              :disabled="scope.row.status === 'closed'"
+              :disabled="scope.row.status === 3"
               @click="closeConversation(scope.row.conversationUuid)"
             >
               关闭

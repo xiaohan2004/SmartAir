@@ -1,6 +1,7 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
+import promptApi from '@/api/prompt';
 
 const loading = ref(false);
 const prompts = ref([]);
@@ -24,37 +25,47 @@ const promptForm = reactive({
   id: null,
   title: '',
   content: '',
-  scenario: '',
-  priority: 0,
-  status: 'active'
+  scenario: ''
 });
 
 // 对话框可见性
 const dialogVisible = ref(false);
 const dialogTitle = ref('添加提示词');
 
-// 模拟提示词数据
-const mockPromptsData = [
-  { id: 201, title: '航班查询引导', content: '您是智能客服助手，请根据用户的描述，帮助用户查询航班信息。如果用户未提供完整信息，请引导用户提供出发地、目的地和出行日期。', scenario: 2, priority: 5, status: 'active', updatedTime: '2023-10-10 09:30:00' },
-  { id: 202, title: '订票流程指导', content: '您是智能客服助手，负责指导用户完成机票预订。请引导用户提供必要信息，并解释订票流程的各个步骤。', scenario: 1, priority: 4, status: 'active', updatedTime: '2023-10-15 14:20:00' },
-  { id: 203, title: '退票政策解释', content: '您是智能客服助手，请根据用户的问题，解释机票退票的政策和流程。请说明退票手续费的计算方式，并引导用户按照正确流程办理退票。', scenario: 3, priority: 3, status: 'active', updatedTime: '2023-10-20 16:15:00' },
-  { id: 204, title: '会员权益咨询', content: '您是智能客服助手，负责回答关于会员积分、会员等级和会员权益的问题。请向用户介绍不同会员等级的权益，并指导用户如何有效累积和使用积分。', scenario: 4, priority: 4, status: 'active', updatedTime: '2023-11-01 10:45:00' },
-  { id: 205, title: '投诉处理引导', content: '您是智能客服助手，负责初步处理用户的投诉。请安抚用户情绪，收集投诉信息，并告知用户投诉处理的流程和预期。', scenario: 5, priority: 5, status: 'inactive', updatedTime: '2023-11-05 11:30:00' }
-];
-
 // 获取提示词列表
 const fetchPrompts = async () => {
   loading.value = true;
   try {
-    // 这里应该调用实际的API获取提示词列表
-    // 模拟API调用
-    setTimeout(() => {
-      prompts.value = mockPromptsData;
+    const response = await promptApi.getAllPrompts();
+    if (response.code === 200) {
+      // 转换API返回的数据格式为组件所需的格式
+      prompts.value = response.data.map(item => {
+        // 解析描述中的场景信息
+        let scenarioId = 1;
+        try {
+          if (item.description && item.description.includes(':')) {
+            scenarioId = parseInt(item.description.split(':')[0]) || 1;
+          }
+        } catch (e) {
+          console.warn('无法解析场景ID:', e);
+        }
+        
+        return {
+          id: item.id,
+          title: item.name,
+          content: item.template,
+          scenario: scenarioId,
+          updatedTime: item.updatedAt ? new Date(item.updatedAt).toLocaleString() : '-'
+        };
+      });
       filterPrompts();
-      loading.value = false;
-    }, 500);
+    } else {
+      throw new Error(response.message || '获取提示词列表失败');
+    }
   } catch (error) {
-    ElMessage.error('获取提示词列表失败');
+    console.error('获取提示词列表失败:', error);
+    ElMessage.error('获取提示词列表失败: ' + (error.message || '未知错误'));
+  } finally {
     loading.value = false;
   }
 };
@@ -103,9 +114,7 @@ const openAddDialog = () => {
     id: null,
     title: '',
     content: '',
-    scenario: '',
-    priority: 0,
-    status: 'active'
+    scenario: ''
   });
   
   dialogTitle.value = '添加提示词';
@@ -119,9 +128,7 @@ const openEditDialog = (prompt) => {
     id: prompt.id,
     title: prompt.title,
     content: prompt.content,
-    scenario: prompt.scenario.toString(),
-    priority: prompt.priority,
-    status: prompt.status
+    scenario: prompt.scenario.toString()
   });
   
   dialogTitle.value = '编辑提示词';
@@ -129,7 +136,7 @@ const openEditDialog = (prompt) => {
 };
 
 // 保存提示词
-const savePrompt = () => {
+const savePrompt = async () => {
   if (!promptForm.title.trim()) {
     ElMessage.warning('请输入提示词标题');
     return;
@@ -145,37 +152,43 @@ const savePrompt = () => {
     return;
   }
   
-  // 表单验证通过，保存数据
-  const formData = {
-    ...promptForm,
-    scenario: parseInt(promptForm.scenario)
+  // 准备API所需的数据格式
+  const apiData = {
+    name: promptForm.title,
+    template: promptForm.content,
+    description: `${promptForm.scenario}:${getScenarioName(parseInt(promptForm.scenario))}`
   };
   
-  if (promptForm.id) {
-    // 更新现有提示词
-    const index = prompts.value.findIndex(item => item.id === promptForm.id);
-    if (index !== -1) {
-      prompts.value[index] = {
-        ...prompts.value[index],
-        ...formData,
-        updatedTime: new Date().toLocaleString()
-      };
-      ElMessage.success('提示词已更新');
+  try {
+    loading.value = true;
+    
+    if (promptForm.id) {
+      // 更新现有提示词
+      const response = await promptApi.updatePrompt(promptForm.id, apiData);
+      if (response.code === 200) {
+        ElMessage.success('提示词已更新');
+      } else {
+        throw new Error(response.message || '更新提示词失败');
+      }
+    } else {
+      // 添加新提示词
+      const response = await promptApi.createPrompt(apiData);
+      if (response.code === 200) {
+        ElMessage.success('提示词已添加');
+      } else {
+        throw new Error(response.message || '添加提示词失败');
+      }
     }
-  } else {
-    // 添加新提示词
-    const newPrompt = {
-      ...formData,
-      id: Date.now(), // 模拟生成ID
-      updatedTime: new Date().toLocaleString()
-    };
-    prompts.value.push(newPrompt);
-    ElMessage.success('提示词已添加');
+    
+    // 关闭对话框并刷新列表
+    dialogVisible.value = false;
+    fetchPrompts();
+  } catch (error) {
+    console.error('保存提示词失败:', error);
+    ElMessage.error('保存提示词失败: ' + (error.message || '未知错误'));
+  } finally {
+    loading.value = false;
   }
-  
-  // 关闭对话框并刷新列表
-  dialogVisible.value = false;
-  filterPrompts();
 };
 
 // 删除提示词
@@ -188,37 +201,23 @@ const deletePrompt = (id) => {
       cancelButtonText: '取消',
       type: 'warning',
     }
-  ).then(() => {
-    // 这里应该调用实际的API删除提示词
-    const index = prompts.value.findIndex(item => item.id === id);
-    if (index !== -1) {
-      prompts.value.splice(index, 1);
-      ElMessage.success('提示词已删除');
-      filterPrompts();
+  ).then(async () => {
+    try {
+      loading.value = true;
+      const response = await promptApi.deletePrompt(id);
+      
+      if (response.code === 200) {
+        ElMessage.success('提示词已删除');
+        fetchPrompts();
+      } else {
+        throw new Error(response.message || '删除提示词失败');
+      }
+    } catch (error) {
+      console.error('删除提示词失败:', error);
+      ElMessage.error('删除提示词失败: ' + (error.message || '未知错误'));
+    } finally {
+      loading.value = false;
     }
-  }).catch(() => {
-    // 用户取消操作
-  });
-};
-
-// 修改提示词状态
-const togglePromptStatus = (prompt) => {
-  const newStatus = prompt.status === 'active' ? 'inactive' : 'active';
-  const action = newStatus === 'active' ? '启用' : '禁用';
-  
-  ElMessageBox.confirm(
-    `确定要${action}该提示词吗？`,
-    `${action}提示词`,
-    {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
-      type: 'warning',
-    }
-  ).then(() => {
-    // 这里应该调用实际的API修改状态
-    prompt.status = newStatus;
-    ElMessage.success(`提示词已${action}`);
-    filterPrompts();
   }).catch(() => {
     // 用户取消操作
   });
@@ -256,7 +255,7 @@ onMounted(() => {
           placeholder="搜索提示词标题或内容"
           prefix-icon="Search"
           @input="handleSearchInput"
-          style="width: 250px; margin-left: 10px;"
+          style="width: 500px; margin-left: 10px;"
         />
       </div>
     </div>
@@ -280,18 +279,6 @@ onMounted(() => {
           {{ getScenarioName(scope.row.scenario) }}
         </template>
       </el-table-column>
-      <el-table-column prop="priority" label="优先级" width="100">
-        <template #default="scope">
-          <el-rate :model-value="scope.row.priority" disabled />
-        </template>
-      </el-table-column>
-      <el-table-column prop="status" label="状态" width="80">
-        <template #default="scope">
-          <el-tag :type="scope.row.status === 'active' ? 'success' : 'info'">
-            {{ scope.row.status === 'active' ? '启用' : '禁用' }}
-          </el-tag>
-        </template>
-      </el-table-column>
       <el-table-column prop="updatedTime" label="更新时间" width="150" />
       <el-table-column label="操作" fixed="right" width="180">
         <template #default="scope">
@@ -302,15 +289,6 @@ onMounted(() => {
             @click="openEditDialog(scope.row)"
           >
             编辑
-          </el-button>
-          <el-button 
-            size="small" 
-            :type="scope.row.status === 'active' ? 'warning' : 'success'" 
-            plain
-            @click="togglePromptStatus(scope.row)"
-            style="margin-left: 5px;"
-          >
-            {{ scope.row.status === 'active' ? '禁用' : '启用' }}
           </el-button>
           <el-button 
             size="small" 
@@ -354,17 +332,6 @@ onMounted(() => {
               :value="scenario.id.toString()"
             />
           </el-select>
-        </el-form-item>
-        
-        <el-form-item label="优先级">
-          <el-rate v-model="promptForm.priority" :max="5" />
-        </el-form-item>
-        
-        <el-form-item label="状态">
-          <el-radio-group v-model="promptForm.status">
-            <el-radio label="active">启用</el-radio>
-            <el-radio label="inactive">禁用</el-radio>
-          </el-radio-group>
         </el-form-item>
       </el-form>
       
