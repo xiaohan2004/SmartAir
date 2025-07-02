@@ -2,30 +2,30 @@ package com.backend.controller;
 
 import com.backend.common.Result;
 import com.backend.common.enumeration.ResultCode;
+import com.backend.entity.ConversationDocument;
 import com.backend.entity.ConversationIndex;
 import com.backend.service.ConversationIntegratedService;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
+import org.springframework.context.annotation.Primary;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
 
 /**
- * 会话控制器
- * 处理会话创建、查询、转接和关闭等功能
- * 
- * @deprecated 已被 {@link ConversationIntegratedController} 替代，为保持兼容性保留
+ * 整合会话控制器
+ * 处理会话创建、查询、转接、关闭和消息追加等功能
  */
 @RestController
-@RequestMapping("/deprecated/mysql/api/conversation")
-@Deprecated
-public class ConversationController {
+@RequestMapping("/api/conversation")
+@RequiredArgsConstructor
+@Primary
+public class ConversationIntegratedController {
 
-    @Autowired
-    private ConversationIntegratedService conversationService;
+    private final ConversationIntegratedService conversationService;
 
     /**
-     * 获取会话详情
+     * 获取会话详情（索引信息）
      *
      * @param uuid 会话UUID
      * @return 会话详情
@@ -40,7 +40,22 @@ public class ConversationController {
     }
 
     /**
-     * 获取用户会话列表
+     * 获取会话详情（包含完整消息内容）
+     *
+     * @param uuid 会话UUID
+     * @return 会话详情
+     */
+    @GetMapping("/{uuid}/content")
+    public Result getConversationContent(@PathVariable String uuid) {
+        ConversationDocument conversation = conversationService.getConversationContent(uuid);
+        if (conversation == null) {
+            return Result.error(ResultCode.NOT_FOUND, "会话不存在");
+        }
+        return Result.success(conversation);
+    }
+
+    /**
+     * 获取用户会话列表（索引信息）
      *
      * @param userId 用户ID
      * @return 会话列表
@@ -48,6 +63,18 @@ public class ConversationController {
     @GetMapping("/user/{userId}")
     public Result listConversationsByUserId(@PathVariable Long userId) {
         List<ConversationIndex> conversations = conversationService.listConversationsByUserId(userId);
+        return Result.success(conversations);
+    }
+
+    /**
+     * 获取用户会话列表（包含完整消息内容）
+     *
+     * @param userId 用户ID
+     * @return 会话列表
+     */
+    @GetMapping("/user/{userId}/contents")
+    public Result getUserConversationContents(@PathVariable Long userId) {
+        List<ConversationDocument> conversations = conversationService.getUserConversationContents(userId);
         return Result.success(conversations);
     }
 
@@ -87,7 +114,7 @@ public class ConversationController {
     }
 
     /**
-     * 创建新会话
+     * 创建新会话（兼容旧接口）
      *
      * @param params 包含用户ID和初始消息的Map
      * @return 创建结果
@@ -109,6 +136,42 @@ public class ConversationController {
             return Result.success("会话创建成功", conversation);
         } else {
             return Result.error("会话创建失败");
+        }
+    }
+
+    /**
+     * 创建新会话（新接口，使用请求参数）
+     *
+     * @param userId 用户ID
+     * @param userInput 用户输入的初始消息
+     * @return 创建结果
+     */
+    @PostMapping("/start")
+    public Result startConversation(
+            @RequestParam Long userId,
+            @RequestParam String userInput) {
+        Map<String, Object> result = conversationService.createConversation(userId, userInput);
+        return Result.success(result);
+    }
+
+    /**
+     * 追加消息到会话
+     *
+     * @param uuid 会话UUID
+     * @param speaker 发言者
+     * @param text 消息内容
+     * @return 追加结果
+     */
+    @PostMapping("/{uuid}/append")
+    public Result appendMessage(
+            @PathVariable String uuid,
+            @RequestParam String speaker,
+            @RequestParam String text) {
+        boolean success = conversationService.appendMessage(uuid, speaker, text);
+        if (success) {
+            return Result.success();
+        } else {
+            return Result.error("消息追加失败");
         }
     }
 
@@ -149,6 +212,22 @@ public class ConversationController {
             return Result.success("会话关闭成功", null);
         } else {
             return Result.error("会话关闭失败");
+        }
+    }
+
+    /**
+     * 删除会话
+     *
+     * @param id 会话UUID
+     * @return 删除结果
+     */
+    @DeleteMapping("/{id}")
+    public Result deleteConversation(@PathVariable String id) {
+        boolean success = conversationService.deleteConversation(id);
+        if (success) {
+            return Result.success("会话删除成功", null);
+        } else {
+            return Result.error("会话删除失败");
         }
     }
 
