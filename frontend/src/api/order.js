@@ -11,6 +11,15 @@ export function getOrderById(id) {
 }
 
 /**
+ * 获取订单详细信息（包含用户和航班信息）
+ * @param {number} id - 订单ID
+ * @returns {Promise} - 返回订单详细信息
+ */
+export function getOrderDetail(id) {
+  return get(`${API_PREFIX}/order/${id}/detail`);
+}
+
+/**
  * 获取用户订单列表
  * @param {number} userId - 用户ID
  * @returns {Promise} - 返回订单列表

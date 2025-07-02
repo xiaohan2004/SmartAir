@@ -1,12 +1,114 @@
 <script setup>
-import { ref, reactive } from 'vue';
+import { ref, reactive, onMounted } from 'vue';
 import HeaderNav from '@/components/common/HeaderNav.vue';
 import SideMenu from '@/components/common/SideMenu.vue';
 import StatCard from '@/components/admin/StatCard.vue';
 import ConversationManagement from '@/components/admin/ConversationManagement.vue';
+import FlightsManagement from '@/components/admin/FlightsManagement.vue';
+import OrdersManagement from '@/components/admin/OrdersManagement.vue';
+import PromptsManagement from '@/components/admin/PromptsManagement.vue';
+import KnowledgeManagement from '@/components/admin/KnowledgeManagement.vue';
+import AccountsManagement from '@/components/admin/AccountsManagement.vue';
+import LogsManagement from '@/components/admin/LogsManagement.vue';
+import { parseJwt } from '@/utils/jwt';
+import { flightApi, orderApi, conversationApi } from '@/api';
+import { ElMessage } from 'element-plus';
 
 const username = ref('管理员');
 const activeMenu = ref('dashboard');
+const loading = ref(false);
+
+// 仪表盘数据
+const dashboardData = reactive({
+  stats: [
+    { title: '今日航班', value: 0, icon: 'Location', color: '#409eff' },
+    { title: '今日订单', value: 0, icon: 'Ticket', color: '#67c23a' },
+    { title: '活跃用户', value: 0, icon: 'User', color: '#e6a23c' },
+    { title: '客服工单', value: 0, icon: 'Service', color: '#f56c6c' }
+  ]
+});
+
+// 从 token 中获取用户信息
+const loadUserInfo = () => {
+  try {
+    const token = localStorage.getItem('token');
+    if (token) {
+      const userData = parseJwt(token);
+      if (userData && userData.username) {
+        username.value = userData.username;
+      }
+    }
+  } catch (error) {
+    console.error('获取用户信息失败', error);
+  }
+};
+
+// 加载仪表盘数据
+const loadDashboardData = async () => {
+  try {
+    loading.value = true;
+    
+    // 获取航班数据
+    const flightsResponse = await flightApi.listFlights();
+    if (flightsResponse.code === 200) {
+      const flights = flightsResponse.data;
+      // 统计今日航班数（假设根据当前日期过滤）
+      const today = new Date().toISOString().split('T')[0];
+      const todayFlights = flights.filter(flight => 
+        flight.scheduledDepartureTime && flight.scheduledDepartureTime.startsWith(today)
+      );
+      dashboardData.stats[0].value = todayFlights.length;
+    }
+    
+    // 获取订单数据
+    const ordersResponse = await orderApi.listAllOrders();
+    if (ordersResponse.code === 200) {
+      const orders = ordersResponse.data;
+      // 统计今日订单数
+      const today = new Date().toISOString().split('T')[0];
+      const todayOrders = orders.filter(order => 
+        order.createdAt && order.createdAt.startsWith(today)
+      );
+      dashboardData.stats[1].value = todayOrders.length;
+    }
+    
+    // 获取活跃用户数（这里需要根据实际API调整）
+    try {
+      const response = await fetch('/api/admin/stats/activeUsers');
+      const data = await response.json();
+      if (data.code === 200) {
+        dashboardData.stats[2].value = data.data || 0;
+      }
+    } catch (error) {
+      console.error('获取活跃用户数失败', error);
+      // 设置一个默认值
+      dashboardData.stats[2].value = 0;
+    }
+    
+    // 获取客服工单数
+    const conversationsResponse = await conversationApi.listAllConversations();
+    if (conversationsResponse.code === 200) {
+      const conversations = conversationsResponse.data;
+      // 统计正在进行中的会话数
+      const activeConversations = conversations.filter(conv => 
+        conv.status === 2  // 2表示已转人工
+      );
+      dashboardData.stats[3].value = activeConversations.length;
+    }
+    
+  } catch (error) {
+    console.error('加载仪表盘数据失败', error);
+    ElMessage.error('加载数据失败');
+  } finally {
+    loading.value = false;
+  }
+};
+
+// 组件挂载时初始化
+onMounted(() => {
+  loadUserInfo();
+  loadDashboardData();
+});
 
 // 侧边栏菜单项
 const menuItems = [
@@ -18,23 +120,6 @@ const menuItems = [
   { index: 'knowledge', title: '知识库管理', icon: 'Document' },
   { index: 'accounts', title: '账号管理', icon: 'UserFilled' },
   { index: 'logs', title: '日志信息', icon: 'List' }
-];
-
-// 仪表盘数据
-const dashboardData = {
-  stats: [
-    { title: '今日航班', value: 246, icon: 'Location', color: '#409eff' },
-    { title: '今日订单', value: 158, icon: 'Ticket', color: '#67c23a' },
-    { title: '活跃用户', value: 1243, icon: 'User', color: '#e6a23c' },
-    { title: '客服工单', value: 78, icon: 'Service', color: '#f56c6c' }
-  ]
-};
-
-// 模拟航班数据
-const flights = [
-  { id: 'CA1234', from: '北京', to: '上海', departure: '08:00', arrival: '10:00', status: '准时' },
-  { id: 'MU5678', from: '广州', to: '深圳', departure: '09:30', arrival: '10:30', status: '延误' },
-  { id: 'CZ8901', from: '成都', to: '重庆', departure: '12:00', arrival: '13:00', status: '取消' }
 ];
 </script>
 
@@ -60,7 +145,7 @@ const flights = [
         <!-- 仪表盘 -->
         <div v-if="activeMenu === 'dashboard'">
           <h2 class="page-title">仪表盘</h2>
-          <div class="stats-container">
+          <div v-loading="loading" class="stats-container">
             <!-- 使用统计卡片组件 -->
             <StatCard 
               v-for="(stat, index) in dashboardData.stats" 
@@ -100,43 +185,13 @@ const flights = [
         <!-- 航班管理 -->
         <div v-if="activeMenu === 'flights'">
           <h2 class="page-title">航班管理</h2>
-          <div class="action-bar">
-            <el-button type="primary">添加航班</el-button>
-            <el-input
-              placeholder="搜索航班"
-              prefix-icon="Search"
-              style="width: 300px; margin-left: auto;"
-            />
-          </div>
-          <el-table :data="flights" style="width: 100%; margin-top: 20px;">
-            <el-table-column prop="id" label="航班号" width="100" />
-            <el-table-column prop="from" label="出发地" width="120" />
-            <el-table-column prop="to" label="目的地" width="120" />
-            <el-table-column prop="departure" label="出发时间" width="120" />
-            <el-table-column prop="arrival" label="到达时间" width="120" />
-            <el-table-column prop="status" label="状态">
-              <template #default="scope">
-                <el-tag
-                  :type="scope.row.status === '准时' ? 'success' : 
-                         scope.row.status === '延误' ? 'warning' : 'danger'"
-                >
-                  {{ scope.row.status }}
-                </el-tag>
-              </template>
-            </el-table-column>
-            <el-table-column label="操作">
-              <template #default>
-                <el-button size="small" type="primary">编辑</el-button>
-                <el-button size="small" type="danger">删除</el-button>
-              </template>
-            </el-table-column>
-          </el-table>
+          <FlightsManagement />
         </div>
         
         <!-- 订单管理 -->
         <div v-if="activeMenu === 'orders'">
           <h2 class="page-title">订单管理</h2>
-          <el-empty description="订单管理模块开发中" />
+          <OrdersManagement />
         </div>
         
         <!-- 会话管理 -->
@@ -145,18 +200,28 @@ const flights = [
           <ConversationManagement />
         </div>
         
-        <!-- 其他模块占位 -->
-        <div v-if="['prompts', 'knowledge', 'accounts', 'logs'].includes(activeMenu)">
-          <h2 class="page-title">{{ 
-            activeMenu === 'prompts' ? '提示词管理' :
-            activeMenu === 'knowledge' ? '知识库管理' :
-            activeMenu === 'accounts' ? '账号管理' : '日志信息'
-          }}</h2>
-          <el-empty :description="`${
-            activeMenu === 'prompts' ? '提示词管理' :
-            activeMenu === 'knowledge' ? '知识库管理' :
-            activeMenu === 'accounts' ? '账号管理' : '日志信息'
-          }模块开发中`" />
+        <!-- 提示词管理 -->
+        <div v-if="activeMenu === 'prompts'">
+          <h2 class="page-title">提示词管理</h2>
+          <PromptsManagement />
+        </div>
+        
+        <!-- 知识库管理 -->
+        <div v-if="activeMenu === 'knowledge'">
+          <h2 class="page-title">知识库管理</h2>
+          <KnowledgeManagement />
+        </div>
+        
+        <!-- 账号管理 -->
+        <div v-if="activeMenu === 'accounts'">
+          <h2 class="page-title">账号管理</h2>
+          <AccountsManagement />
+        </div>
+        
+        <!-- 日志信息 -->
+        <div v-if="activeMenu === 'logs'">
+          <h2 class="page-title">日志信息</h2>
+          <LogsManagement />
         </div>
       </div>
     </main>
@@ -247,10 +312,5 @@ const flights = [
   background-color: #f5f7fa;
   color: #909399;
   border-radius: 4px;
-}
-
-.action-bar {
-  display: flex;
-  margin-bottom: 20px;
 }
 </style> 

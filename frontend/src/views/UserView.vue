@@ -37,7 +37,7 @@ const initConversation = async () => {
     // 如果有进行中的会话，加载会话消息
     if (activeConvResponse.data) {
       const conversation = activeConvResponse.data;
-      conversationUuid.value = conversation.uuid;
+      conversationUuid.value = conversation.conversationUuid;
       
       // TODO: 这里应该调用获取会话消息的API，现在模拟一些消息
       chatMessages.value = [
@@ -55,7 +55,7 @@ const initConversation = async () => {
       });
       
       // 保存会话UUID
-      conversationUuid.value = createResponse.data.uuid;
+      conversationUuid.value = createResponse.data.conversationUuid;
       
       // 添加初始消息
       chatMessages.value = [
@@ -92,32 +92,39 @@ const handleSendMessage = async (messageText) => {
   
   try {
     // 添加用户消息
-    chatMessages.value.push({
+    const userMsg = {
       content: messageText,
       type: 'user',
       time: new Date().toLocaleTimeString()
-    });
+    };
+    chatMessages.value.push(userMsg);
     
     loading.value = true;
     
     // 调用后端API发送消息
-    // TODO: 这里应该实现发送消息的API，现在模拟AI回复
+    const response = await fetch(`/api/conversation/${conversationUuid.value}/message`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'token': localStorage.getItem('token')
+      },
+      body: JSON.stringify({
+        message: messageText,
+        userId: parseJwt(localStorage.getItem('token')).userId
+      })
+    });
     
-    // 模拟延迟
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    const responseData = await response.json();
     
-    if (conversationActive.value) {
+    if (responseData.code === 200 && conversationActive.value) {
       // 添加AI回复
       chatMessages.value.push({
-        content: `您好，这是对"${messageText}"的回复`,
+        content: responseData.data.reply || `您好，这是对"${messageText}"的回复`,
         type: 'ai',
         time: new Date().toLocaleTimeString()
       });
-      
-      // 更新会话最后一条消息
-      if (conversationUuid.value) {
-        // 省略实际API调用，应该有一个updateLastMessage的API
-      }
+    } else {
+      throw new Error(responseData.message || '发送消息失败');
     }
   } catch (error) {
     console.error('发送消息失败:', error);
