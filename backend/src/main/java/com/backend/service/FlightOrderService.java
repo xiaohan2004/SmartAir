@@ -1,6 +1,7 @@
 package com.backend.service;
 
 import com.backend.entity.FlightOrder;
+import com.backend.vo.FlightOrderDetail;
 import com.baomidou.mybatisplus.extension.service.IService;
 
 import java.util.List;
@@ -46,4 +47,11 @@ public interface FlightOrderService extends IService<FlightOrder> {
      * @return 订单列表（包含关联信息）
      */
     List<FlightOrder> listOrdersWithDetail(Long userId);
+
+    /**
+     * 根据订单ID获取订单详情
+     * @param id 订单ID
+     * @return 订单详情
+     */
+    FlightOrderDetail getOrderDetailById(Long id);
 }

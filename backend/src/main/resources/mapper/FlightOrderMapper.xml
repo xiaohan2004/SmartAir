@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.backend.dao.mapper.FlightOrderMapper">
+
+    <resultMap id="FlightOrderDetailResultMap" type="com.backend.vo.FlightOrderDetail">
+        <result property="orderId" column="order_id"/>
+        <result property="seatNo" column="seat_no"/>
+        <result property="status" column="status"/>
+        <result property="createdAt" column="created_at"/>
+
+        <result property="userId" column="user_id"/>
+        <result property="username" column="username"/>
+        <result property="realName" column="real_name"/>
+        <result property="phone" column="phone"/>
+
+        <result property="flightId" column="flight_id"/>
+        <result property="flightNo" column="flight_no"/>
+        <result property="departureCity" column="departure_city"/>
+        <result property="arrivalCity" column="arrival_city"/>
+        <result property="scheduledDepartureTime" column="scheduled_departure_time"/>
+        <result property="scheduledArrivalTime" column="scheduled_arrival_time"/>
+        <result property="airline" column="airline"/>
+        <result property="aircraftType" column="aircraft_type"/>
+        <result property="price" column="price"/>
+    </resultMap>
+
+    <select id="getOrderDetailById" resultMap="FlightOrderDetailResultMap" parameterType="long">
+        SELECT
+            o.id AS order_id,
+            o.seat_no,
+            o.status,
+            o.created_at,
+
+            u.id AS user_id,
+            u.username,
+            u.real_name,
+            u.phone,
+
+            f.id AS flight_id,
+            f.flight_no,
+            f.departure_city,
+            f.arrival_city,
+            f.scheduled_departure_time,
+            f.scheduled_arrival_time,
+            f.airline,
+            f.aircraft_type,
+            f.price
+        FROM flight_order o
+                 JOIN `user` u ON o.user_id = u.id
+                 JOIN flight f ON o.flight_id = f.id
+        WHERE o.id = #{orderId}
+    </select>
+
+</mapper>

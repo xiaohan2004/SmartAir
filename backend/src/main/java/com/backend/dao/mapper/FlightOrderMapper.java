@@ -1,6 +1,7 @@
 package com.backend.dao.mapper;
 
 import com.backend.entity.FlightOrder;
+import com.backend.vo.FlightOrderDetail;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import org.apache.ibatis.annotations.Mapper;
 
@@ -9,5 +10,5 @@ import org.apache.ibatis.annotations.Mapper;
  */
 @Mapper
 public interface FlightOrderMapper extends BaseMapper<FlightOrder> {
-    
+    FlightOrderDetail getOrderDetailById(Long orderId);
 }

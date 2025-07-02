@@ -4,6 +4,7 @@ import com.backend.common.Result;
 import com.backend.common.enumeration.ResultCode;
 import com.backend.entity.FlightOrder;
 import com.backend.service.FlightOrderService;
+import com.backend.vo.FlightOrderDetail;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -23,7 +24,7 @@ public class FlightOrderController {
     private FlightOrderService flightOrderService;
 
     /**
-     * 获取订单详情
+     * 获取订单
      *
      * @param id 订单ID
      * @return 订单详情
@@ -35,6 +36,21 @@ public class FlightOrderController {
             return Result.error(ResultCode.NOT_FOUND, "订单不存在");
         }
         return Result.success(order);
+    }
+
+    /**
+     * 获取用户订单详情
+     *
+     * @param id 订单ID
+     * @return 订单详情
+     */
+    @GetMapping("/{id}/detail")
+    public Result getOrderDetailById(@PathVariable Long id) {
+        FlightOrderDetail orderDetail = flightOrderService.getOrderDetailById(id);
+        if (orderDetail == null) {
+            return Result.error(ResultCode.NOT_FOUND, "订单不存在");
+        }
+        return Result.success(orderDetail);
     }
 
     /**

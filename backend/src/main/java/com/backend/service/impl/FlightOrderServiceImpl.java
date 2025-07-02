@@ -7,6 +7,7 @@ import com.backend.dao.mapper.FlightOrderMapper;
 import com.backend.service.FlightOrderService;
 import com.backend.service.FlightService;
 import com.backend.service.UserService;
+import com.backend.vo.FlightOrderDetail;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,6 +29,8 @@ public class FlightOrderServiceImpl extends ServiceImpl<FlightOrderMapper, Fligh
     
     @Autowired
     private FlightService flightService;
+    @Autowired
+    private FlightOrderMapper flightOrderMapper;
 
     @Override
     public List<FlightOrder> listByUserId(Long userId) {
@@ -104,5 +107,10 @@ public class FlightOrderServiceImpl extends ServiceImpl<FlightOrderMapper, Fligh
             
             return order;
         }).collect(Collectors.toList());
+    }
+
+    @Override
+    public FlightOrderDetail getOrderDetailById(Long id) {
+        return flightOrderMapper.getOrderDetailById(id);
     }
 }
