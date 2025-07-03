@@ -26,7 +26,7 @@ public class FlightOrderServiceImpl extends ServiceImpl<FlightOrderMapper, Fligh
 
     @Autowired
     private UserService userService;
-    
+
     @Autowired
     private FlightService flightService;
     @Autowired
@@ -56,23 +56,23 @@ public class FlightOrderServiceImpl extends ServiceImpl<FlightOrderMapper, Fligh
         if (user == null) {
             throw new RuntimeException("用户不存在");
         }
-        
+
         // 检查航班是否存在
         Flight flight = flightService.getById(flightId);
         if (flight == null) {
             throw new RuntimeException("航班不存在");
         }
-        
+
         // 创建订单
         FlightOrder order = new FlightOrder();
         order.setUserId(userId);
         order.setFlightId(flightId);
         order.setSeatNo(seatNo);
         order.setStatus(1); // 默认已完成状态
-        
+
         // 保存订单
         save(order);
-        
+
         return order;
     }
 
@@ -83,10 +83,10 @@ public class FlightOrderServiceImpl extends ServiceImpl<FlightOrderMapper, Fligh
         if (order == null) {
             return false;
         }
-        
+
         // 设置订单状态为已取消
         order.setStatus(2);
-        
+
         return updateById(order);
     }
 
@@ -94,17 +94,17 @@ public class FlightOrderServiceImpl extends ServiceImpl<FlightOrderMapper, Fligh
     public List<FlightOrder> listOrdersWithDetail(Long userId) {
         // 查询用户订单
         List<FlightOrder> orders = listByUserId(userId);
-        
+
         // 填充关联信息
         return orders.stream().map(order -> {
             // 设置用户信息
             User user = userService.getById(order.getUserId());
             order.setUser(user);
-            
+
             // 设置航班信息
             Flight flight = flightService.getById(order.getFlightId());
             order.setFlight(flight);
-            
+
             return order;
         }).collect(Collectors.toList());
     }
@@ -112,5 +112,27 @@ public class FlightOrderServiceImpl extends ServiceImpl<FlightOrderMapper, Fligh
     @Override
     public FlightOrderDetail getOrderDetailById(Long id) {
         return flightOrderMapper.getOrderDetailById(id);
+    }
+
+    @Override
+    public List<FlightOrderDetail> getFlightOrderDetailsByName(String realName) {
+        // 查询用户ID
+        User user = userService.getUserByRealName(realName);
+        if (user == null) {
+            return List.of();
+        }
+
+        // 查询用户所有订单
+        List<FlightOrder> orders = listByUserId(user.getId());
+
+        // 过滤掉已取消的订单
+        orders = orders.stream()
+                .filter(order -> order.getStatus() != 2) // 只保留未取消的订单
+                .toList();
+
+        // 获取订单详情
+        return orders.stream()
+                .map(order -> flightOrderMapper.getOrderDetailById(order.getId()))
+                .collect(Collectors.toList());
     }
 }

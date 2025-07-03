@@ -38,4 +38,11 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         user.setMemberLevel(memberLevel);
         return updateById(user);
     }
+
+    @Override
+    public User getUserByRealName(String realName) {
+        LambdaQueryWrapper<User> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(User::getRealName, realName);
+        return getOne(queryWrapper);
+    }
 }

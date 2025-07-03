@@ -29,4 +29,6 @@ public interface UserService extends IService<User> {
      * @return 是否成功
      */
     boolean updateMemberLevel(Long userId, Integer memberLevel);
+
+    User getUserByRealName(String realName);
 }

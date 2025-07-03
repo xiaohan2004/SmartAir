@@ -1,5 +1,6 @@
 package com.backend.config;
 
+import com.backend.entity.FlightOrder;
 import com.backend.service.AiService;
 import com.backend.service.FlightOrderService;
 import com.backend.vo.FlightOrderDetail;
@@ -8,6 +9,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Description;
 
+import java.util.List;
 import java.util.function.Function;
 
 @Configuration
@@ -21,6 +23,9 @@ public class AiToolsConfig {
     }
 
     public record FlightOrderDetailRequest(Long orderId, String name) {
+    }
+
+    public record FinishedFlightOrderDetailsRequest(String realName) {
     }
 
     @Bean
@@ -41,6 +46,18 @@ public class AiToolsConfig {
             } catch (Exception e) {
                 return new FlightOrderDetail(request.orderId(), null, null, null, null, request.name(),
                         null, null, null, null, null, null, null, null, null, null, null);
+            }
+        };
+    }
+
+    @Bean
+    @Description("获取用户所有已预定的航班")
+    public Function<FinishedFlightOrderDetailsRequest, List<FlightOrderDetail>> getFinishedFlightOrderDetails() {
+        return request -> {
+            try {
+                return flightOrderService.getFlightOrderDetailsByName(request.realName());
+            } catch (Exception e) {
+                return List.of();
             }
         };
     }

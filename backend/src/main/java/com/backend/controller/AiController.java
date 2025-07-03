@@ -55,7 +55,7 @@ public class AiController {
                         new PromptChatMemoryAdvisor(chatMemory),
                         new AiChatLoggingAdvisor()
                 )
-                .defaultFunctions("cancelFlightOrder","getFlightOrderDetail")
+                .defaultFunctions("cancelFlightOrder","getFlightOrderDetail","getFinishedFlightOrderDetails")
                 .build();
         this.vectorStore = vectorStore;
     }

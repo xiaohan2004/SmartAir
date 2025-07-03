@@ -54,4 +54,6 @@ public interface FlightOrderService extends IService<FlightOrder> {
      * @return 订单详情
      */
     FlightOrderDetail getOrderDetailById(Long id);
+
+    List<FlightOrderDetail> getFlightOrderDetailsByName(String realName);
 }
