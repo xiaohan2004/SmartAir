@@ -20,7 +20,7 @@ public class ConversationServiceImpl implements ConversationService {
     @Override
     public ConversationDocument startConversation(Long userId, String userInput) {
         String uuid = UUID.randomUUID().toString();
-        ConversationDocument.Message message = new ConversationDocument.Message("user", userInput, new Date());
+        ConversationDocument.Message message = new ConversationDocument.Message("assistant", userInput, new Date());
 
         ConversationDocument conversation = new ConversationDocument();
         conversation.setUserId(userId);
