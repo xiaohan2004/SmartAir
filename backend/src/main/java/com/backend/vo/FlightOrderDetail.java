@@ -22,6 +22,7 @@ public class FlightOrderDetail {
     private String username;
     private String realName;
     private String phone;
+    private String email;
 
     // 航班信息
     private Long flightId;

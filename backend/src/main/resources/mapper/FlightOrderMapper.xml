@@ -15,6 +15,7 @@
         <result property="username" column="username"/>
         <result property="realName" column="real_name"/>
         <result property="phone" column="phone"/>
+        <result property="email" column="email"/>
 
         <result property="flightId" column="flight_id"/>
         <result property="flightNo" column="flight_no"/>
@@ -38,6 +39,7 @@
             u.username,
             u.real_name,
             u.phone,
+            u.email,
 
             f.id AS flight_id,
             f.flight_no,

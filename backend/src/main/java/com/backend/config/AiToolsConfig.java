@@ -40,7 +40,7 @@ public class AiToolsConfig {
                 return flightOrderService.getOrderDetailById(request.orderId);
             } catch (Exception e) {
                 return new FlightOrderDetail(request.orderId(), null, null, null, null, request.name(),
-                        null, null, null, null, null, null, null, null, null, null, null);
+                        null, null, null, null, null, null, null, null, null, null, null, null);
             }
         };
     }

@@ -7,12 +7,15 @@ import com.backend.dao.mapper.FlightOrderMapper;
 import com.backend.service.FlightOrderService;
 import com.backend.service.FlightService;
 import com.backend.service.UserService;
+import com.backend.util.EmailUtil;
 import com.backend.vo.FlightOrderDetail;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronizationAdapter;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -26,17 +29,18 @@ public class FlightOrderServiceImpl extends ServiceImpl<FlightOrderMapper, Fligh
 
     @Autowired
     private UserService userService;
-    
     @Autowired
     private FlightService flightService;
     @Autowired
     private FlightOrderMapper flightOrderMapper;
+    @Autowired
+    private EmailUtil emailUtil;
 
     @Override
     public List<FlightOrder> listByUserId(Long userId) {
         LambdaQueryWrapper<FlightOrder> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.eq(FlightOrder::getUserId, userId)
-                   .orderByDesc(FlightOrder::getCreatedAt);
+                .orderByDesc(FlightOrder::getCreatedAt);
         return list(queryWrapper);
     }
 
@@ -44,7 +48,7 @@ public class FlightOrderServiceImpl extends ServiceImpl<FlightOrderMapper, Fligh
     public List<FlightOrder> listByFlightId(Long flightId) {
         LambdaQueryWrapper<FlightOrder> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.eq(FlightOrder::getFlightId, flightId)
-                   .orderByDesc(FlightOrder::getCreatedAt);
+                .orderByDesc(FlightOrder::getCreatedAt);
         return list(queryWrapper);
     }
 
@@ -56,25 +60,42 @@ public class FlightOrderServiceImpl extends ServiceImpl<FlightOrderMapper, Fligh
         if (user == null) {
             throw new RuntimeException("用户不存在");
         }
-        
+
         // 检查航班是否存在
         Flight flight = flightService.getById(flightId);
         if (flight == null) {
             throw new RuntimeException("航班不存在");
         }
-        
+
         // 创建订单
         FlightOrder order = new FlightOrder();
         order.setUserId(userId);
         order.setFlightId(flightId);
         order.setSeatNo(seatNo);
         order.setStatus(1); // 默认已完成状态
-        
+
         // 保存订单
         save(order);
-        
+
+        // ✅ 注册事务提交后的操作
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronizationAdapter() {
+            @Override
+            public void afterCommit() {
+                FlightOrderDetail flightOrderDetail = flightOrderMapper.getOrderDetailById(order.getId());
+                emailUtil.sendOrderNotification(
+                        flightOrderDetail.getEmail(),
+                        flightOrderDetail.getOrderId().toString(),
+                        flightOrderDetail.getFlightNo(),
+                        flightOrderDetail.getSeatNo(),
+                        flightOrderDetail.getScheduledDepartureTime().toString(),
+                        flightOrderDetail.getStatus()
+                );
+            }
+        });
+
         return order;
     }
+
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -83,28 +104,53 @@ public class FlightOrderServiceImpl extends ServiceImpl<FlightOrderMapper, Fligh
         if (order == null) {
             return false;
         }
-        
+
+        // ✅ 幂等处理
+        if (order.getStatus() == 2) {
+            System.out.println("订单 [" + orderId + "] 已是取消状态，跳过重复处理");
+            return true;
+        }
+
         // 设置订单状态为已取消
         order.setStatus(2);
-        
-        return updateById(order);
+
+        // 更新订单
+        boolean updated = updateById(order);
+
+        // ✅ 注册事务提交后的邮件发送
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronizationAdapter() {
+            @Override
+            public void afterCommit() {
+                FlightOrderDetail flightOrderDetail = flightOrderMapper.getOrderDetailById(order.getId());
+                emailUtil.sendOrderNotification(
+                        flightOrderDetail.getEmail(),
+                        flightOrderDetail.getOrderId().toString(),
+                        flightOrderDetail.getFlightNo(),
+                        flightOrderDetail.getSeatNo(),
+                        flightOrderDetail.getScheduledDepartureTime().toString(),
+                        flightOrderDetail.getStatus()
+                );
+            }
+        });
+
+        return updated;
     }
 
     @Override
     public List<FlightOrder> listOrdersWithDetail(Long userId) {
         // 查询用户订单
         List<FlightOrder> orders = listByUserId(userId);
-        
+
         // 填充关联信息
         return orders.stream().map(order -> {
             // 设置用户信息
             User user = userService.getById(order.getUserId());
             order.setUser(user);
-            
+
             // 设置航班信息
             Flight flight = flightService.getById(order.getFlightId());
             order.setFlight(flight);
-            
+
             return order;
         }).collect(Collectors.toList());
     }
