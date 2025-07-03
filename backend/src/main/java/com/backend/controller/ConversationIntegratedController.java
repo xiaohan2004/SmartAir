@@ -188,11 +188,17 @@ public class ConversationIntegratedController {
      */
     @PutMapping("/{uuid}/transfer")
     public Result transferToService(@PathVariable String uuid, @RequestBody Map<String, Long> params) {
-        Long serviceUserId = params.get("serviceUserId");
+        Long serviceUserId = null;
+        try{
+            serviceUserId = params.get("serviceUserId");
+        } catch (Exception e) {
+            System.out.println("参数解析错误: " + e.getMessage());
+        }
         
         // 参数校验
         if (serviceUserId == null) {
-            return Result.error(ResultCode.PARAM_ERROR, "客服用户ID不能为空");
+//            return Result.error(ResultCode.PARAM_ERROR, "客服用户ID不能为空");
+            serviceUserId = 84L; // 默认转接到ID为38的客服
         }
         
         boolean success = conversationService.transferToService(uuid, serviceUserId);

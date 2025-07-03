@@ -27,6 +27,6 @@ public interface ConversationIndexMapper extends BaseMapper<ConversationIndex> {
      * @param userId 用户ID
      * @return 活跃会话
      */
-    @Select("SELECT * FROM conversation_index WHERE user_id = #{userId} AND status = 1 ORDER BY updated_at DESC LIMIT 1")
+    @Select("SELECT * FROM conversation_index WHERE user_id = #{userId} AND status != 3 ORDER BY updated_at DESC LIMIT 1")
     ConversationIndex selectActiveByUserId(@Param("userId") Long userId);
 }

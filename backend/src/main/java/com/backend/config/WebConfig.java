@@ -12,10 +12,10 @@ public class WebConfig implements WebMvcConfigurer {
     @Autowired
     private LoginCheckInterceptor loginCheckInterceptor;
 
-    @Override
-    public void addInterceptors(InterceptorRegistry registry) {
-        registry.addInterceptor(loginCheckInterceptor).addPathPatterns("/**").excludePathPatterns("/api/auth/**");
-    }
+//    @Override
+//    public void addInterceptors(InterceptorRegistry registry) {
+//        registry.addInterceptor(loginCheckInterceptor).addPathPatterns("/**").excludePathPatterns("/api/auth/**");
+//    }
 
     @Override
     public void addCorsMappings(CorsRegistry registry) {

@@ -70,7 +70,7 @@ export function createConversation(data) {
  * @returns {Promise} - 返回转接结果
  */
 export function transferConversation(uuid, serviceUserId) {
-  return put(`${API_PREFIX}/conversation/${uuid}/transfer`, { serviceUserId });
+  return put(`${API_PREFIX}/conversation/${uuid}/transfer`, serviceUserId);
 }
 
 /**
