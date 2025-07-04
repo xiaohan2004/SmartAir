@@ -6,6 +6,18 @@
 
 SmartAir系统将前沿的MCP（Model Context Protocol，模型上下文协议）与RAG（Retrieval-Augmented Generation，检索增强生成）技术相结合，打造一个高效、智能、具备知识记忆与实时检索能力的航空客服系统。通过这些技术的融合，系统能够动态访问外部知识库（如航班状态、退改签政策、用户历史记录等），为生成回答提供事实支撑，提升准确性和可靠性。
 
+## 项目截图
+
+![项目截图 (1).png](assets/%E9%A1%B9%E7%9B%AE%E6%88%AA%E5%9B%BE%20%281%29.png)
+
+![项目截图 (2).png](assets/%E9%A1%B9%E7%9B%AE%E6%88%AA%E5%9B%BE%20%282%29.png)
+
+![项目截图 (5).png](assets/%E9%A1%B9%E7%9B%AE%E6%88%AA%E5%9B%BE%20%285%29.png)
+
+![项目截图 (6).png](assets/%E9%A1%B9%E7%9B%AE%E6%88%AA%E5%9B%BE%20%286%29.png)
+
+![项目截图 (7).png](assets/%E9%A1%B9%E7%9B%AE%E6%88%AA%E5%9B%BE%20%287%29.png)
+
 ## 主要功能
 
 系统整体功能围绕以下三类核心角色展开：
@@ -45,7 +57,7 @@ SmartAir系统将前沿的MCP（Model Context Protocol，模型上下文协议�
 
 ### 后端技术
 - **开发框架**：Spring Boot
-- **数据访问**：MyBatis（高效SQL操作，灵活映射数据结构）
+- **数据访问**：MyBatis-Plus（高效SQL操作，灵活映射数据结构）
 - **架构设计**：MVC架构，AOP实现统一日志记录、安全控制和异常处理
 
 ### 数据库技术
