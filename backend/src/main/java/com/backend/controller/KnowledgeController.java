@@ -25,8 +25,8 @@ public class KnowledgeController {
     }
 
     @PutMapping("/{id}")
-    public Result update(@PathVariable String id, @RequestBody String newContent) {
-        knowledgeService.updateContentById(id, newContent);
+    public Result update(@PathVariable String id, @RequestBody KnowledgeDocument newDoc) {
+        knowledgeService.updateContentById(id, newDoc);
         return Result.success();
     }
 

@@ -37,10 +37,12 @@ public class PromptTemplateServiceImpl implements PromptTemplateService {
     }
 
     @Override
-    public void updateTemplate(String id, String newTemplate) {
+    public void updateTemplate(String id, PromptTemplate newTemplate) {
         PromptTemplate pt = promptDao.findById(id)
             .orElseThrow(() -> new RuntimeException("模板不存在"));
-        pt.setTemplate(newTemplate);
+        pt.setName(newTemplate.getName());
+        pt.setDescription(newTemplate.getDescription());
+        pt.setTemplate(newTemplate.getTemplate());
         pt.setUpdatedAt(new Date());
         promptDao.save(pt);
     }

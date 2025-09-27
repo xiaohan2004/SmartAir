@@ -9,6 +9,6 @@ public interface PromptTemplateService {
     PromptTemplate createTemplate(String name, String template, String description);
     Optional<PromptTemplate> getByName(String name);
     List<PromptTemplate> listAll();
-    void updateTemplate(String id, String newTemplate);
+    void updateTemplate(String id, PromptTemplate newTemplate);
     void deleteTemplate(String id);
 }

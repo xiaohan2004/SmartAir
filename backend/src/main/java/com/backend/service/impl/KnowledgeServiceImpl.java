@@ -31,10 +31,12 @@ public class KnowledgeServiceImpl implements KnowledgeService {
     }
 
     @Override
-    public void updateContentById(String id, String newContent) {
+    public void updateContentById(String id, KnowledgeDocument newDoc) {
         KnowledgeDocument doc = knowledgeDao.findById(id)
             .orElseThrow(() -> new RuntimeException("文档不存在"));
-        doc.setContent(newContent);
+        doc.setTitle(newDoc.getTitle());
+        doc.setContent(newDoc.getContent());
+        doc.setTags(newDoc.getTags());
         doc.setLastUpdated(new Date());
         knowledgeDao.save(doc);
     }

@@ -34,9 +34,9 @@ public class PromptTemplateController {
         return Result.success(promptService.listAll());
     }
 
-    // 更新模板内容
+    // 更新模板
     @PutMapping("/{id}")
-    public Result update(@PathVariable String id, @RequestBody String newTemplate) {
+    public Result update(@PathVariable String id, @RequestBody PromptTemplate newTemplate) {
         promptService.updateTemplate(id, newTemplate);
         return Result.success();
     }
