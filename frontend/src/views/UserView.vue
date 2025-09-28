@@ -1,11 +1,11 @@
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue';
-import { useRouter } from 'vue-router';
-import { ElMessage, ElMessageBox } from 'element-plus';
+import {ref, onMounted, onUnmounted} from 'vue';
+import {useRouter} from 'vue-router';
+import {ElMessage, ElMessageBox} from 'element-plus';
 import HeaderNav from '@/components/common/HeaderNav.vue';
 import ChatBox from '@/components/chat/ChatBox.vue';
-import { conversationApi } from '@/api';
-import { parseJwt } from '@/utils/jwt';
+import {conversationApi} from '@/api';
+import {parseJwt} from '@/utils/jwt';
 
 const router = useRouter();
 const username = ref('用户名');
@@ -14,6 +14,7 @@ const conversationActive = ref(true);
 const loading = ref(false);
 const conversationUuid = ref('');
 const currentUserId = ref(null);
+const isTransferToService = ref(false);
 
 // SSE 相关
 let eventSource = null;
@@ -24,7 +25,7 @@ const currentStreamMessage = ref('');
 const initConversation = async () => {
   try {
     loading.value = true;
-    
+
     // 从token中解析用户信息
     const token = localStorage.getItem('token');
     if (!token) {
@@ -32,19 +33,19 @@ const initConversation = async () => {
       router.push('/login');
       return;
     }
-    
+
     const userData = parseJwt(token);
     username.value = userData.username;
     currentUserId.value = userData.userId;
-    
+
     // 检查是否有进行中的会话
     const activeConvResponse = await conversationApi.getUserActiveConversation(currentUserId.value);
-    
+
     // 如果有进行中的会话，加载会话消息
     if (activeConvResponse.data) {
       const conversation = activeConvResponse.data;
       conversationUuid.value = conversation.conversationUuid;
-      
+
       // 获取会话消息记录
       try {
         const messagesResponse = await conversationApi.getConversationMessages(conversation.conversationUuid);
@@ -80,10 +81,10 @@ const initConversation = async () => {
         userId: currentUserId.value,
         initialMessage: '您好，欢迎使用智能客服系统，有什么可以帮助您的？'
       });
-      
+
       // 保存会话UUID
       conversationUuid.value = createResponse.data.conversationUuid;
-      
+
       // 添加初始消息
       chatMessages.value = [
         {
@@ -96,7 +97,7 @@ const initConversation = async () => {
   } catch (error) {
     console.error('初始化会话失败:', error);
     ElMessage.error(error.message || '初始化会话失败');
-    
+
     // 创建本地会话，防止页面崩溃
     chatMessages.value = [
       {
@@ -114,13 +115,13 @@ const initConversation = async () => {
 const logMessage = async (messageText, speaker) => {
   try {
     if (!conversationUuid.value) return;
-    
+
     const messageData = {
       text: messageText,
       speaker: speaker,
       timestamp: new Date().toISOString()
     };
-    
+
     await conversationApi.sendMessage(conversationUuid.value, messageData);
   } catch (error) {
     console.error('记录消息失败:', error);
@@ -134,13 +135,13 @@ const createSSEConnection = (message) => {
     if (eventSource) {
       eventSource.close();
     }
-    
+
     const url = `http://localhost:8080/api/ai/generateStreamAsString?message=${encodeURIComponent(message)}`;
     eventSource = new EventSource(url);
-    
+
     let aiResponse = '';
     let aiMessageIndex = -1;
-    
+
     // 先添加一个空的AI消息占位
     const aiMsg = {
       content: '',
@@ -149,47 +150,47 @@ const createSSEConnection = (message) => {
     };
     chatMessages.value.push(aiMsg);
     aiMessageIndex = chatMessages.value.length - 1;
-    
+
     eventSource.onmessage = (event) => {
       const data = event.data;
-      
+
       if (data === '[complete]') {
         // 流式响应完成
         eventSource.close();
         eventSource = null;
         isReceivingStream.value = false;
-        
+
         // 记录AI回复到后端
         logMessage(aiResponse, 'assistant');
-        
+
         resolve(aiResponse);
       } else {
         // 累积AI响应内容
         aiResponse += data;
-        
+
         // 实时更新界面上的AI消息
         if (aiMessageIndex >= 0) {
           chatMessages.value[aiMessageIndex].content = aiResponse;
         }
       }
     };
-    
+
     eventSource.onerror = (error) => {
       console.error('SSE连接错误:', error);
       eventSource.close();
       eventSource = null;
       isReceivingStream.value = false;
-      
+
       // 如果没有收到任何响应，显示错误消息
       if (!aiResponse) {
         if (aiMessageIndex >= 0) {
           chatMessages.value[aiMessageIndex].content = '抱歉，AI服务暂时不可用，请稍后再试。';
         }
       }
-      
+
       reject(error);
     };
-    
+
     eventSource.onopen = () => {
       isReceivingStream.value = true;
     };
@@ -202,7 +203,7 @@ const handleSendMessage = async (messageText) => {
     ElMessage.warning('会话已关闭，无法发送消息');
     return;
   }
-  
+
   try {
     // 添加用户消息到界面
     const userMsg = {
@@ -211,15 +212,16 @@ const handleSendMessage = async (messageText) => {
       time: new Date().toLocaleTimeString()
     };
     chatMessages.value.push(userMsg);
-    
+
     // 记录用户消息到后端
     await logMessage(messageText, 'user');
-    
-    loading.value = true;
-    
-    // 使用SSE接收AI流式响应
-    await createSSEConnection(messageText);
-    
+
+    if (!isTransferToService.value) {
+      loading.value = true;
+      // 使用SSE接收AI流式响应
+      await createSSEConnection(messageText);
+    }
+
   } catch (error) {
     console.error('发送消息失败:', error);
     ElMessage.error('发送消息失败: ' + (error.message || '未知错误'));
@@ -242,27 +244,27 @@ const handleCloseConversation = async () => {
     .then(async () => {
       try {
         loading.value = true;
-        
+
         // 关闭SSE连接
         if (eventSource) {
           eventSource.close();
           eventSource = null;
         }
-        
+
         if (conversationUuid.value) {
           // 调用后端API关闭会话
           await conversationApi.closeConversation(conversationUuid.value);
         }
-        
+
         conversationActive.value = false;
-        
+
         // 添加系统消息，提示会话已关闭
         chatMessages.value.push({
           content: '会话已关闭。如需继续咨询，请刷新页面开始新的会话。',
           type: 'system',
           time: new Date().toLocaleTimeString()
         });
-        
+
         ElMessage.success('会话已关闭');
       } catch (error) {
         console.error('关闭会话失败:', error);
@@ -290,23 +292,23 @@ const handleTransferToService = async () => {
     .then(async () => {
       try {
         loading.value = true;
-        
+
         if (!conversationUuid.value) {
           ElMessage.warning('无效的会话');
           return;
         }
-        
+
         // 关闭SSE连接
         if (eventSource) {
           eventSource.close();
           eventSource = null;
         }
-        
+
         // 调用后端API转接到人工客服
         const response = await conversationApi.transferConversation(conversationUuid.value, {
           serviceUserId: null // 系统自动分配客服
         });
-        
+
         if (response.code === 200) {
           // 添加系统消息
           chatMessages.value.push({
@@ -314,10 +316,12 @@ const handleTransferToService = async () => {
             type: 'system',
             time: new Date().toLocaleTimeString()
           });
-          
+
           // 记录转接消息
           await logMessage('用户请求转接人工客服', 'service');
-          
+
+          isTransferToService.value = true;
+
           ElMessage.success('已转接到人工客服，请等待客服接入');
         } else {
           throw new Error(response.message || '转接失败');
@@ -356,15 +360,15 @@ onMounted(() => {
 <template>
   <div class="user-container">
     <!-- 使用通用顶部导航栏组件 -->
-    <HeaderNav :username="username" />
-    
+    <HeaderNav :username="username"/>
+
     <!-- 主要内容区域 -->
     <main class="main-content">
       <div class="chat-container">
         <!-- 使用聊天组件 -->
-        <ChatBox 
-          :messages="chatMessages" 
-          placeholder="请输入您的问题" 
+        <ChatBox
+          :messages="chatMessages"
+          placeholder="请输入您的问题"
           empty-text="有什么能帮您？"
           user-type="user"
           :loading="loading"
@@ -373,10 +377,12 @@ onMounted(() => {
           @closeConversation="handleCloseConversation"
           @transferToService="handleTransferToService"
         />
-        
+
         <!-- 流式响应状态提示 -->
         <div v-if="isReceivingStream" class="stream-status">
-          <el-icon class="is-loading"><Loading /></el-icon>
+          <el-icon class="is-loading">
+            <Loading/>
+          </el-icon>
           <span>AI正在思考中...</span>
         </div>
       </div>
@@ -446,11 +452,11 @@ onMounted(() => {
   .main-content {
     padding: 10px;
   }
-  
+
   .chat-container {
     max-width: 100%;
   }
-  
+
   .stream-status {
     bottom: 10px;
     left: 10px;

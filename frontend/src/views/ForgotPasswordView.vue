@@ -61,22 +61,22 @@ const sendCode = async () => {
   try {
     // 先验证邮箱
     await formRef.value.validateField('email');
-    
+
     if (!forgotForm.email) {
       return;
     }
-    
+
     loading.value = true;
-    
+
     // 调用发送验证码API
     await authApi.sendVerificationCode({
       email: forgotForm.email,
-      type: 'resetPassword'  // 标记是重置密码场景
+      type: 'reset'  // 标记是重置密码场景
     });
-    
+
     ElMessage.success('验证码已发送到您的邮箱');
     isCodeSent.value = true;
-    
+
     // 倒计时
     countdown.value = 60;
     timer.value = setInterval(() => {
@@ -101,15 +101,15 @@ const nextStep = async () => {
     if (currentStep.value === 1) {
       // 验证第一步的字段
       await formRef.value.validateField(['username', 'email', 'verificationCode']);
-      
+
       // 这里可以调用API验证验证码是否正确，但大多数情况下会在最终提交时一起验证
       currentStep.value = 2;
     } else if (currentStep.value === 2) {
       // 验证第二步的字段
       await formRef.value.validateField(['newPassword', 'confirmPassword']);
-      
+
       loading.value = true;
-      
+
       // 调用重置密码API
       await authApi.resetPassword({
         username: forgotForm.username,
@@ -117,7 +117,7 @@ const nextStep = async () => {
         newPassword: forgotForm.newPassword,
         code: forgotForm.verificationCode
       });
-      
+
       ElMessage.success('密码重置成功，请使用新密码登录');
       router.push('/login');
     }
@@ -142,14 +142,14 @@ const goToLogin = () => {
         <h2>找回密码</h2>
         <p>重置您的账号密码</p>
       </div>
-      
+
       <el-steps :active="currentStep" finish-status="success" simple class="steps">
         <el-step title="验证身份" />
         <el-step title="重置密码" />
         <el-step title="完成" />
       </el-steps>
-      
-      <el-form 
+
+      <el-form
         ref="formRef"
         :model="forgotForm"
         :rules="rules"
@@ -159,30 +159,30 @@ const goToLogin = () => {
         <!-- 第一步：验证身份 -->
         <template v-if="currentStep === 1">
           <el-form-item label="用户名" prop="username">
-            <el-input 
-              v-model="forgotForm.username" 
-              placeholder="请输入用户名" 
+            <el-input
+              v-model="forgotForm.username"
+              placeholder="请输入用户名"
               prefix-icon="User"
             />
           </el-form-item>
-        
+
           <el-form-item label="邮箱" prop="email">
-            <el-input 
-              v-model="forgotForm.email" 
-              placeholder="请输入注册时使用的邮箱" 
+            <el-input
+              v-model="forgotForm.email"
+              placeholder="请输入注册时使用的邮箱"
               prefix-icon="Message"
             />
           </el-form-item>
-          
+
           <el-form-item label="验证码" prop="verificationCode">
             <div class="verification-code">
-              <el-input 
-                v-model="forgotForm.verificationCode" 
+              <el-input
+                v-model="forgotForm.verificationCode"
                 placeholder="请输入验证码"
                 class="code-input"
               />
-              <el-button 
-                type="primary" 
+              <el-button
+                type="primary"
                 :disabled="isCodeSent"
                 :loading="loading && !isCodeSent"
                 @click="sendCode"
@@ -193,41 +193,41 @@ const goToLogin = () => {
             </div>
           </el-form-item>
         </template>
-        
+
         <!-- 第二步：设置新密码 -->
         <template v-if="currentStep === 2">
           <el-form-item label="新密码" prop="newPassword">
-            <el-input 
-              v-model="forgotForm.newPassword" 
-              placeholder="请输入新密码" 
-              prefix-icon="Lock" 
-              type="password" 
+            <el-input
+              v-model="forgotForm.newPassword"
+              placeholder="请输入新密码"
+              prefix-icon="Lock"
+              type="password"
               show-password
             />
           </el-form-item>
-          
+
           <el-form-item label="确认新密码" prop="confirmPassword">
-            <el-input 
-              v-model="forgotForm.confirmPassword" 
-              placeholder="请再次输入新密码" 
-              prefix-icon="Lock" 
-              type="password" 
+            <el-input
+              v-model="forgotForm.confirmPassword"
+              placeholder="请再次输入新密码"
+              prefix-icon="Lock"
+              type="password"
               show-password
             />
           </el-form-item>
         </template>
-        
+
         <el-form-item>
-          <el-button 
-            type="primary" 
-            @click="nextStep" 
+          <el-button
+            type="primary"
+            @click="nextStep"
             class="submit-button"
             :loading="loading"
           >
             {{ currentStep === 1 ? '下一步' : '提交' }}
           </el-button>
         </el-form-item>
-        
+
         <div class="login-link">
           想起密码了？<el-link type="primary" @click="goToLogin">去登录</el-link>
         </div>
@@ -310,4 +310,4 @@ const goToLogin = () => {
   justify-content: center;
   align-items: center;
 }
-</style> 
+</style>
