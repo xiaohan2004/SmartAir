@@ -21,6 +21,46 @@ let eventSource = null;
 const isReceivingStream = ref(false);
 const currentStreamMessage = ref('');
 
+let pollTimer = null; // ⭐ 新增：轮询定时器
+
+// 停止轮询
+const stopPolling = () => {
+  if (pollTimer) {
+    clearInterval(pollTimer);
+    pollTimer = null;
+  }
+};
+
+// 开始轮询（仅人工客服模式）
+const startPolling = (conversationId) => {
+  stopPolling();
+  pollTimer = setInterval(async () => {
+    try {
+      const res = await conversationApi.getConversationMessages(conversationId);
+      if (res.code === 200 && res.data?.messages) {
+        const messages = res.data.messages;
+        const oldLen = chatMessages.value.length;
+        const newLen = messages.length;
+
+        if (newLen > oldLen) {
+          const diff = messages.slice(oldLen);
+          chatMessages.value.push(
+            ...diff.map(msg => ({
+              content: msg.text,
+              type: msg.speaker === 'user' ? 'user' : 'ai', // 这里可能要改成 'service'
+              time: msg.timestamp
+                ? new Date(msg.timestamp).toLocaleTimeString()
+                : new Date().toLocaleTimeString()
+            }))
+          );
+        }
+      }
+    } catch (e) {
+      console.error('轮询消息失败:', e);
+    }
+  }, 1000);
+};
+
 // 初始化会话
 const initConversation = async () => {
   try {
@@ -45,6 +85,10 @@ const initConversation = async () => {
     if (activeConvResponse.data) {
       const conversation = activeConvResponse.data;
       conversationUuid.value = conversation.conversationUuid;
+      if (conversation.status === 2) {
+        isTransferToService.value = true;
+        startPolling(conversation.conversationUuid); // ⭐ 开始轮询
+      }
 
       // 获取会话消息记录
       try {
@@ -250,6 +294,7 @@ const handleCloseConversation = async () => {
           eventSource.close();
           eventSource = null;
         }
+        stopPolling(); // ⭐ 停止轮询
 
         if (conversationUuid.value) {
           // 调用后端API关闭会话
@@ -321,6 +366,8 @@ const handleTransferToService = async () => {
           await logMessage('用户请求转接人工客服', 'service');
 
           isTransferToService.value = true;
+          // ⭐ 开始轮询客服消息
+          startPolling(conversationUuid.value);
 
           ElMessage.success('已转接到人工客服，请等待客服接入');
         } else {
@@ -349,6 +396,7 @@ onUnmounted(() => {
     eventSource.close();
     eventSource = null;
   }
+  stopPolling(); // ⭐ 记得清理定时器
 });
 
 // 组件挂载时初始化会话

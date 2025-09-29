@@ -1,5 +1,5 @@
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue';
+import { ref, reactive, computed, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { ElMessageBox, ElMessage } from 'element-plus';
 import HeaderNav from '@/components/common/HeaderNav.vue';
@@ -17,6 +17,7 @@ const currentChat = ref(null);
 const chatMessages = ref([]);
 const loading = ref(false);
 const serviceUserId = ref(null);
+let pollTimer = null;
 
 // 侧边栏菜单项
 const menuItems = [
@@ -105,6 +106,39 @@ const initData = async () => {
   }
 };
 
+// 停止轮询
+const stopPolling = () => {
+  if (pollTimer) {
+    clearInterval(pollTimer);
+    pollTimer = null;
+  }
+};
+
+// 开始轮询
+const startPolling = (customer) => {
+  stopPolling();
+
+  pollTimer = setInterval(async () => {
+    const res = await conversationApi.getConversationMessages(customer.conversationUuid);
+    if (res.code === 200 && res.data?.messages) {
+      const messages = res.data.messages;
+      const oldLen = chatMessages.value.length; // ⭐ 当前前端已有的消息数量
+      const newLen = messages.length;
+
+      if (newLen > oldLen) {
+        // 取新增的部分
+        const diff = messages.slice(oldLen);
+        chatMessages.value.push(...diff.map(msg => ({
+          content: msg.text,
+          type: msg.speaker === 'assistant' || msg.speaker === 'service' ? 'service' : 'customer',
+          time: msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString() : new Date().toLocaleTimeString()
+        })));
+      }
+    }
+  }, 1000);
+};
+
+
 // 选择客户聊天
 const selectCustomer = async (customer) => {
   try {
@@ -179,6 +213,9 @@ const selectCustomer = async (customer) => {
       }
 
     }
+
+    // 启动轮询
+    startPolling(customer);
   } catch (error) {
     console.error('加载会话失败:', error);
     ElMessage.error('加载会话失败: ' + (error.message || '未知错误'));
