@@ -1,0 +1,89 @@
+server:
+  port: 8080
+  compression:
+    enabled: true
+
+spring:
+  application:
+    name: smartair
+
+  # 数据库配置
+  datasource:
+    type: com.alibaba.druid.pool.DruidDataSource
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/smartair?createDatabaseIfNotExist=true&useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false
+    username: <replace-with-your-value>
+    password: <replace-with-your-value>
+    druid:
+      initial-size: 5
+      min-idle: 5
+      max-active: 20
+      max-wait: 60000
+      time-between-eviction-runs-millis: 60000
+      min-evictable-idle-time-millis: 300000
+      validation-query: SELECT 1
+      test-while-idle: true
+      test-on-borrow: false
+      test-on-return: false
+      pool-prepared-statements: true
+      max-pool-prepared-statement-per-connection-size: 20
+      filters: stat,wall
+  # 数据库初始化配置
+  sql:
+    init:
+      schema-locations: classpath:schema.sql
+      data-locations: classpath:data.sql
+      mode: never
+      continue-on-error: true
+
+  # Redis 配置
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      database: 0
+      timeout: 10000
+      lettuce:
+        pool:
+          max-active: 8
+          max-wait: -1
+          max-idle: 8
+          min-idle: 0
+    mongodb:
+      uri: mongodb://localhost:27017/smartair
+  ai:
+    dashscope:
+      api-key: <replace-with-your-value>
+
+# MyBatis-plus 配置
+mybatis-plus:
+  mapper-locations: classpath:mapper/*.xml
+  type-aliases-package: com.backend.entity
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    db-config:
+      update-strategy: not_null
+
+# 日志配置
+logging:
+  level:
+    root: info
+    com.backend: debug
+  file:
+    name: logs/smartair.log
+
+# 初始管理员用户名密码
+admin:
+  username: <replace-with-your-value>
+  password: <replace-with-your-value>
+
+# 应用配置
+app:
+  aliyun:
+    mail:
+      accessKeyId: <replace-with-your-value>
+      accessKeySecret: <replace-with-your-value>
+      accountName: <replace-with-your-value>
+      fromAlias: <replace-with-your-value>
